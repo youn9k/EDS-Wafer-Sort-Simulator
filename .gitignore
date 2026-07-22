@@ -1,0 +1,26 @@
+# .NET 빌드 결과물
+[Bb]in/
+[Oo]bj/
+artifacts/
+publish/
+
+# Visual Studio 개인 설정 및 캐시
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# 테스트 및 코드 커버리지 결과
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Windows 탐색기 생성 파일
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 이 프로젝트의 임시 검증 빌드 결과
+.verify/
