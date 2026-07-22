@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0",
+  "recipeId": "RCP-WIS3K-STD-001",
+  "name": "300 mm 표준 표면 검사",
+  "version": "1.2.0",
+  "targetEquipmentModel": "WIS-3000",
+  "author": "Process Engineering",
+  "createdAt": "2026-07-15T09:00:00+09:00",
+  "wafer": {
+    "diameterMm": 300,
+    "material": "Silicon",
+    "lotId": "DEMO-LOT-3000"
+  },
+  "inspection": {
+    "scanMode": "FullWafer",
+    "resolutionMicrometer": 1.5,
+    "defectThresholdMicrometer": 3.0,
+    "edgeExclusionMm": 3.0
+  },
+  "steps": [
+    {
+      "sequence": 1,
+      "id": "LOAD",
+      "name": "웨이퍼 로드",
+      "command": "LoadWafer",
+      "durationSeconds": 2,
+      "parameters": [
+        { "name": "Slot", "value": "1", "unit": "" },
+        { "name": "Vacuum", "value": "-65", "unit": "kPa" }
+      ]
+    },
+    {
+      "sequence": 2,
+      "id": "ALIGN",
+      "name": "노치 정렬",
+      "command": "AlignWafer",
+      "durationSeconds": 3,
+      "parameters": [
+        { "name": "Tolerance", "value": "0.05", "unit": "degree" }
+      ]
+    },
+    {
+      "sequence": 3,
+      "id": "CALIBRATE",
+      "name": "광학계 교정",
+      "command": "CalibrateOptics",
+      "durationSeconds": 3,
+      "parameters": [
+        { "name": "LightLevel", "value": "72", "unit": "%" }
+      ]
+    },
+    {
+      "sequence": 4,
+      "id": "SCAN",
+      "name": "표면 스캔",
+      "command": "ScanSurface",
+      "durationSeconds": 6,
+      "parameters": [
+        { "name": "StageSpeed", "value": "125", "unit": "mm/s" },
+        { "name": "FocusOffset", "value": "0.2", "unit": "um" }
+      ]
+    },
+    {
+      "sequence": 5,
+      "id": "ANALYZE",
+      "name": "결함 분석",
+      "command": "AnalyzeDefects",
+      "durationSeconds": 3,
+      "parameters": [
+        { "name": "Sensitivity", "value": "High", "unit": "" }
+      ]
+    },
+    {
+      "sequence": 6,
+      "id": "UNLOAD",
+      "name": "웨이퍼 언로드",
+      "command": "UnloadWafer",
+      "durationSeconds": 2,
+      "parameters": []
+    }
+  ]
+}

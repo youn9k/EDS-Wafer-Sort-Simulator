@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "recipeId": "RCP-MISMATCH-001",
+  "name": "지원하지 않는 모델 확인용 레시피",
+  "version": "1.0.0",
+  "targetEquipmentModel": "WIS-9000",
+  "author": "QA Engineering",
+  "createdAt": "2026-07-20T10:00:00+09:00",
+  "wafer": {
+    "diameterMm": 300,
+    "material": "Silicon",
+    "lotId": "MISMATCH-DEMO"
+  },
+  "inspection": {
+    "scanMode": "FullWafer",
+    "resolutionMicrometer": 1.0,
+    "defectThresholdMicrometer": 2.0,
+    "edgeExclusionMm": 3.0
+  },
+  "steps": [
+    {
+      "sequence": 1,
+      "id": "LOAD",
+      "name": "웨이퍼 로드",
+      "command": "LoadWafer",
+      "durationSeconds": 2,
+      "parameters": []
+    },
+    {
+      "sequence": 2,
+      "id": "SCAN",
+      "name": "표면 스캔",
+      "command": "ScanSurface",
+      "durationSeconds": 3,
+      "parameters": []
+    }
+  ]
+}

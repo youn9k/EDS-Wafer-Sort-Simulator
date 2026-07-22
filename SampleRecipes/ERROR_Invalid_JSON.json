@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.0",
+  "recipeId": "BROKEN-JSON",
+  "name": "형식 오류 확인용 레시피",
+  "targetEquipmentModel": "WIS-3000",
+  "steps": [
+    { "sequence": 1, "id": "LOAD", "name": "웨이퍼 로드" }
+  ]
+  "missingComma": true
+}
