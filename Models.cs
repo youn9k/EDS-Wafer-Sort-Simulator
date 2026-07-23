@@ -22,10 +22,12 @@ public sealed class EquipmentDefinition
 {
     public string Id { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
+    public string Manufacturer { get; init; } = string.Empty;
     public string Model { get; init; } = string.Empty;
     public string IpAddress { get; init; } = string.Empty;
     public int Port { get; init; }
     public Color AccentColor { get; init; }
+    public string? ImagePath { get; init; }
 }
 
 public sealed class EquipmentState
@@ -144,3 +146,7 @@ public sealed record TestProgress(
 public sealed record PersistedEquipmentState(string EquipmentId, ConnectionStatus ConnectionStatus, DateTimeOffset? LastConnectedAt);
 
 public sealed record RecipeLoadResult(RecipeDocument Recipe, string RawJson, string SourcePath);
+
+public sealed record EquipmentCatalogLoadResult(
+    IReadOnlyList<EquipmentDefinition> Equipment,
+    IReadOnlyList<string> Errors);

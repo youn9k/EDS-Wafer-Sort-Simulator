@@ -12,6 +12,9 @@
     <Content Include="SampleRecipes\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="equipment\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Compile Remove="RecipeTestProject.SelfTests\**\*.cs" />
   </ItemGroup>
 

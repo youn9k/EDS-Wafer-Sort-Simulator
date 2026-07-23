@@ -1,0 +1,10 @@
+{
+  "id": "KLA-3935",
+  "name": "초고해상도 광대역 플라즈마 패턴 웨이퍼 결함 검사 시스템",
+  "manufacturer": "KLA",
+  "model": "KLA-3935",
+  "ipAddress": "192.168.10.107",
+  "port": 5001,
+  "imagePath": "images/KLA-3935.png",
+  "accentColor": "#238E7B"
+}

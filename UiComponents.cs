@@ -65,6 +65,25 @@ internal static class EquipmentImageFactory
 {
     public static Bitmap Create(EquipmentDefinition equipment, int width = 260, int height = 145)
     {
+        if (!string.IsNullOrWhiteSpace(equipment.ImagePath))
+        {
+            try
+            {
+                using var stream = File.OpenRead(equipment.ImagePath);
+                using var image = Image.FromStream(stream);
+                return new Bitmap(image);
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+            {
+                // 이미지가 실행 중 삭제되거나 손상된 경우에도 기본 일러스트를 표시한다.
+            }
+        }
+
+        return CreatePlaceholder(equipment, width, height);
+    }
+
+    private static Bitmap CreatePlaceholder(EquipmentDefinition equipment, int width, int height)
+    {
         var bitmap = new Bitmap(width, height);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -157,7 +176,7 @@ internal sealed class EquipmentCard : Panel
         };
         var model = new Label
         {
-            Text = equipment.Definition.Model,
+            Text = $"{equipment.Definition.Manufacturer} · {equipment.Definition.Model}",
             ForeColor = AppTheme.Muted,
             Location = new Point(17, 193),
             AutoSize = true
@@ -364,7 +383,7 @@ internal sealed class EquipmentSelectionDialog : Form
             _connect.Enabled = false;
             return;
         }
-        _detail.Text = $"{selected.Name}\r\n\r\n모델\r\n  {selected.Model}\r\n\r\n장비 ID\r\n  {selected.Id}\r\n\r\n통신 주소\r\n  {selected.IpAddress}:{selected.Port}\r\n\r\n연결에는 약 1초가 소요됩니다.";
+        _detail.Text = $"{selected.Name}\r\n\r\n제조사\r\n  {selected.Manufacturer}\r\n\r\n모델\r\n  {selected.Model}\r\n\r\n장비 ID\r\n  {selected.Id}\r\n\r\n통신 주소\r\n  {selected.IpAddress}:{selected.Port}\r\n\r\n연결에는 약 1초가 소요됩니다.";
         _connect.Enabled = true;
     }
 }
@@ -467,21 +486,22 @@ internal sealed class EquipmentDetailView : UserControl
 
         var info = AppTheme.CardPanel();
         info.Dock = DockStyle.Top;
-        info.Height = 255;
-        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 4 };
+        info.Height = 295;
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 5 };
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        for (var i = 0; i < 4; i++) table.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+        for (var i = 0; i < 5; i++) table.RowStyles.Add(new RowStyle(SizeType.Percent, 20));
         AddInfo(table, 0, "장비명", equipment.Definition.Name);
-        AddInfo(table, 1, "모델", equipment.Definition.Model);
-        AddInfo(table, 2, "장비 ID", equipment.Definition.Id);
-        AddInfo(table, 3, "IP / 포트", $"{equipment.Definition.IpAddress}:{equipment.Definition.Port}");
-        _connection = AddInfo(table, 4, "연결 상태", string.Empty);
-        _lastConnection = AddInfo(table, 5, "마지막 연결", string.Empty);
-        _testStatus = AddInfo(table, 6, "테스트 상태", string.Empty);
-        AddInfo(table, 7, "통신 방식", "가상 장비 시뮬레이션");
+        AddInfo(table, 1, "제조사", equipment.Definition.Manufacturer);
+        AddInfo(table, 2, "모델", equipment.Definition.Model);
+        AddInfo(table, 3, "장비 ID", equipment.Definition.Id);
+        AddInfo(table, 4, "IP / 포트", $"{equipment.Definition.IpAddress}:{equipment.Definition.Port}");
+        _connection = AddInfo(table, 5, "연결 상태", string.Empty);
+        _lastConnection = AddInfo(table, 6, "마지막 연결", string.Empty);
+        _testStatus = AddInfo(table, 7, "테스트 상태", string.Empty);
+        AddInfo(table, 8, "통신 방식", "가상 장비 시뮬레이션");
         info.Controls.Add(table);
 
         var result = AppTheme.CardPanel();

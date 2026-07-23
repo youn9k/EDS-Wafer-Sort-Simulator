@@ -1,29 +1,187 @@
 using System.Text;
 using System.Text.Json;
+using System.Net;
 
 namespace RecipeTestProject;
 
 public static class EquipmentCatalog
 {
-    public static IReadOnlyList<EquipmentDefinition> Create() =>
-    [
-        New("WIS-A01", "검사 장비 A-01", "WIS-3000", "192.168.10.101", Color.FromArgb(33, 115, 186)),
-        New("WIS-A02", "검사 장비 A-02", "WIS-3000", "192.168.10.102", Color.FromArgb(33, 115, 186)),
-        New("WIS-A03", "검사 장비 A-03", "WIS-3000", "192.168.10.103", Color.FromArgb(33, 115, 186)),
-        New("WIS-B01", "검사 장비 B-01", "WIS-5000", "192.168.10.104", Color.FromArgb(35, 142, 123)),
-        New("WIS-B02", "검사 장비 B-02", "WIS-5000", "192.168.10.105", Color.FromArgb(35, 142, 123)),
-        New("WIS-B03", "검사 장비 B-03", "WIS-5000", "192.168.10.106", Color.FromArgb(35, 142, 123))
-    ];
-
-    private static EquipmentDefinition New(string id, string name, string model, string ip, Color color) => new()
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        Id = id,
-        Name = name,
-        Model = model,
-        IpAddress = ip,
-        Port = 5001,
-        AccentColor = color
+        PropertyNameCaseInsensitive = true,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip
     };
+
+    public static EquipmentCatalogLoadResult Load(string directory)
+    {
+        var equipment = new List<EquipmentDefinition>();
+        var errors = new List<string>();
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!Directory.Exists(directory))
+        {
+            errors.Add($"장비 카탈로그 폴더를 찾을 수 없습니다: {directory}");
+            return new EquipmentCatalogLoadResult(equipment, errors);
+        }
+
+        string[] files;
+        try
+        {
+            files = Directory.GetFiles(directory, "*.json", SearchOption.TopDirectoryOnly);
+            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            errors.Add($"장비 카탈로그 폴더를 읽을 수 없습니다: {ex.Message}");
+            return new EquipmentCatalogLoadResult(equipment, errors);
+        }
+
+        foreach (var path in files)
+        {
+            var fileName = Path.GetFileName(path);
+            try
+            {
+                var document = JsonSerializer.Deserialize<EquipmentCatalogDocument>(
+                    File.ReadAllText(path, Encoding.UTF8), JsonOptions);
+                if (document is null)
+                    throw new EquipmentCatalogException("JSON 내용이 비어 있습니다.");
+
+                var validationErrors = Validate(document);
+                if (validationErrors.Count > 0)
+                    throw new EquipmentCatalogException(string.Join(", ", validationErrors));
+
+                if (!ids.Add(document.Id))
+                    throw new EquipmentCatalogException($"중복된 장비 ID입니다: {document.Id}");
+
+                var imagePath = ResolveImagePath(path, document.ImagePath, errors);
+                equipment.Add(new EquipmentDefinition
+                {
+                    Id = document.Id.Trim(),
+                    Name = document.Name.Trim(),
+                    Manufacturer = document.Manufacturer.Trim(),
+                    Model = document.Model.Trim(),
+                    IpAddress = document.IpAddress.Trim(),
+                    Port = document.Port,
+                    AccentColor = ParseColor(document.AccentColor),
+                    ImagePath = imagePath
+                });
+            }
+            catch (JsonException ex)
+            {
+                errors.Add($"{fileName}: JSON 형식 오류 - {ex.Message}");
+            }
+            catch (EquipmentCatalogException ex)
+            {
+                errors.Add($"{fileName}: {ex.Message}");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                errors.Add($"{fileName}: 파일을 읽을 수 없습니다 - {ex.Message}");
+            }
+        }
+
+        if (files.Length == 0)
+            errors.Add($"장비 JSON 파일이 없습니다: {directory}");
+        else if (equipment.Count == 0)
+            errors.Add("정상적으로 로드된 장비가 없습니다.");
+
+        return new EquipmentCatalogLoadResult(equipment, errors);
+    }
+
+    private static List<string> Validate(EquipmentCatalogDocument document)
+    {
+        var errors = new List<string>();
+        Required(document.Id, "id", errors);
+        Required(document.Name, "name", errors);
+        Required(document.Manufacturer, "manufacturer", errors);
+        Required(document.Model, "model", errors);
+        Required(document.IpAddress, "ipAddress", errors);
+        Required(document.AccentColor, "accentColor", errors);
+
+        if (!string.IsNullOrWhiteSpace(document.IpAddress) && !IPAddress.TryParse(document.IpAddress, out _))
+            errors.Add("ipAddress 형식이 올바르지 않습니다");
+        if (document.Port is < 1 or > 65535)
+            errors.Add("port는 1~65535 범위여야 합니다");
+        if (!string.IsNullOrWhiteSpace(document.AccentColor) && !TryParseColor(document.AccentColor, out _))
+            errors.Add("accentColor는 #RRGGBB 형식이어야 합니다");
+        return errors;
+    }
+
+    private static string? ResolveImagePath(string jsonPath, string? configuredPath, ICollection<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath)) return null;
+
+        var fileName = Path.GetFileName(jsonPath);
+        if (Path.IsPathRooted(configuredPath))
+        {
+            errors.Add($"{fileName}: imagePath는 JSON 파일 기준 상대 경로여야 합니다.");
+            return null;
+        }
+
+        var directory = Path.GetFullPath(Path.GetDirectoryName(jsonPath)!);
+        var candidate = Path.GetFullPath(Path.Combine(directory, configuredPath));
+        var allowedPrefix = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        if (!candidate.StartsWith(allowedPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add($"{fileName}: imagePath가 equipment 폴더 밖을 가리킵니다.");
+            return null;
+        }
+        if (!File.Exists(candidate))
+        {
+            errors.Add($"{fileName}: 이미지 파일을 찾을 수 없습니다 - {configuredPath}");
+            return null;
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(candidate);
+            using var image = Image.FromStream(stream, useEmbeddedColorManagement: false, validateImageData: true);
+            return candidate;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            errors.Add($"{fileName}: 이미지 파일을 읽을 수 없습니다 - {ex.Message}");
+            return null;
+        }
+    }
+
+    private static Color ParseColor(string value)
+    {
+        TryParseColor(value, out var color);
+        return color;
+    }
+
+    private static bool TryParseColor(string value, out Color color)
+    {
+        color = default;
+        if (value.Length != 7 || value[0] != '#') return false;
+        if (!int.TryParse(value.AsSpan(1), System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture, out var rgb))
+            return false;
+        color = Color.FromArgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+        return true;
+    }
+
+    private static void Required(string? value, string name, ICollection<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(value)) errors.Add($"{name} 값이 필요합니다");
+    }
+
+    private sealed class EquipmentCatalogDocument
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Manufacturer { get; set; } = string.Empty;
+        public string Model { get; set; } = string.Empty;
+        public string IpAddress { get; set; } = string.Empty;
+        public int Port { get; set; }
+        public string AccentColor { get; set; } = string.Empty;
+        public string? ImagePath { get; set; }
+    }
+
+    private sealed class EquipmentCatalogException(string message) : Exception(message);
 }
 
 public sealed class RecipeValidationException(string message) : Exception(message);

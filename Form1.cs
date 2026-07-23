@@ -4,7 +4,8 @@ namespace RecipeTestProject;
 
 public partial class Form1 : Form
 {
-    private readonly IReadOnlyList<EquipmentDefinition> _catalog = EquipmentCatalog.Create();
+    private readonly EquipmentCatalogLoadResult _catalogLoadResult;
+    private readonly IReadOnlyList<EquipmentDefinition> _catalog;
     private readonly List<EquipmentState> _equipment = [];
     private readonly RecipeService _recipeService = new();
     private readonly MockConnectionService _connectionService = new();
@@ -28,12 +29,15 @@ public partial class Form1 : Form
 
     public Form1()
     {
+        _catalogLoadResult = EquipmentCatalog.Load(Path.Combine(AppContext.BaseDirectory, "equipment"));
+        _catalog = _catalogLoadResult.Equipment;
         InitializeComponent();
         Font = new Font("맑은 고딕", 9F);
         BackColor = AppTheme.Background;
         BuildShell();
         RestoreEquipment();
         ShowEquipmentList();
+        Shown += (_, _) => ShowCatalogErrors();
     }
 
     private void BuildShell()
@@ -253,6 +257,13 @@ public partial class Form1 : Form
 
     private async Task AddEquipmentAsync()
     {
+        if (_catalog.Count == 0)
+        {
+            MessageBox.Show(this, "장비 카탈로그에 정상적으로 등록된 장비가 없습니다.", "장비 연결",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         var existingIds = _equipment.Select(x => x.Definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var available = _catalog.Where(x => !existingIds.Contains(x.Id)).ToList();
         if (available.Count == 0)
@@ -513,6 +524,16 @@ public partial class Form1 : Form
     {
         try { await _stateStore.SaveAsync(_equipment); }
         catch (Exception ex) { ShowBanner($"장비 상태 저장 실패: {ex.Message}", TestStatus.Failed); }
+    }
+
+    private void ShowCatalogErrors()
+    {
+        if (_catalogLoadResult.Errors.Count == 0) return;
+
+        MessageBox.Show(this,
+            "일부 장비 정보를 불러오지 못했습니다.\r\n정상적인 장비 정보만 목록에 반영되었습니다.\r\n\r\n" +
+            string.Join("\r\n", _catalogLoadResult.Errors.Select(error => $"• {error}")),
+            "장비 카탈로그 경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
     private string GetSampleRecipeDirectory()

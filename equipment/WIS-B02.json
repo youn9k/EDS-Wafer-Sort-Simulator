@@ -1,0 +1,9 @@
+{
+  "id": "WIS-B02",
+  "name": "검사 장비 B-02",
+  "manufacturer": "WIS Systems",
+  "model": "WIS-5000",
+  "ipAddress": "192.168.10.105",
+  "port": 5001,
+  "accentColor": "#238E7B"
+}

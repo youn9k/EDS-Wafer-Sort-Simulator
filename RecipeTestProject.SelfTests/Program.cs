@@ -1,6 +1,85 @@
 using RecipeTestProject;
+using System.Drawing;
 
 var failures = new List<string>();
+
+await CheckAsync("장비 카탈로그 샘플 로드", () =>
+{
+    var result = EquipmentCatalog.Load(Path.Combine("equipment"));
+    Assert(result.Errors.Count == 0, $"샘플 장비 로드 오류: {string.Join(" | ", result.Errors)}");
+    Assert(result.Equipment.Count == 6, "샘플 장비가 6대가 아닙니다.");
+    var first = result.Equipment[0];
+    Assert(first.Id == "WIS-A01", "첫 장비 ID가 다릅니다.");
+    Assert(first.Manufacturer == "WIS Systems", "제조사 값이 다릅니다.");
+    Assert(first.Model == "WIS-3000", "장비 모델이 다릅니다.");
+    Assert(first.IpAddress == "192.168.10.101" && first.Port == 5001, "통신 주소가 다릅니다.");
+    Assert(first.AccentColor == Color.FromArgb(33, 115, 186), "강조색이 다릅니다.");
+    return Task.CompletedTask;
+});
+
+await CheckAsync("장비 카탈로그 부분 오류 허용", () =>
+{
+    var directory = CreateTemporaryDirectory();
+    try
+    {
+        File.WriteAllText(Path.Combine(directory, "01-valid.json"), ValidEquipmentJson("TEST-01"));
+        File.WriteAllText(Path.Combine(directory, "02-duplicate.json"), ValidEquipmentJson("test-01"));
+        File.WriteAllText(Path.Combine(directory, "03-invalid-json.json"), "{ invalid");
+        File.WriteAllText(Path.Combine(directory, "04-invalid-values.json"),
+            ValidEquipmentJson("TEST-04")
+                .Replace("\"192.168.10.1\"", "\"not-an-ip\"")
+                .Replace("\"#2173BA\"", "\"blue\"")
+                .Replace("\"port\": 5001", "\"port\": 70000"));
+
+        var result = EquipmentCatalog.Load(directory);
+        Assert(result.Equipment.Count == 1, "정상 장비만 로드되지 않았습니다.");
+        Assert(result.Equipment[0].Id == "TEST-01", "파일명 순서에 따른 첫 중복 ID가 유지되지 않았습니다.");
+        Assert(result.Errors.Count == 3, "잘못된 파일별 오류가 모두 보고되지 않았습니다.");
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+});
+
+await CheckAsync("장비 카탈로그 폴더 없음", () =>
+{
+    var missing = Path.Combine(Path.GetTempPath(), $"RecipeTestProject-missing-{Guid.NewGuid():N}");
+    var result = EquipmentCatalog.Load(missing);
+    Assert(result.Equipment.Count == 0, "없는 폴더에서 장비가 로드되었습니다.");
+    Assert(result.Errors.Count == 1, "없는 폴더 오류가 보고되지 않았습니다.");
+    return Task.CompletedTask;
+});
+
+await CheckAsync("장비 이미지 경로 검증", () =>
+{
+    var directory = CreateTemporaryDirectory();
+    try
+    {
+        var imageDirectory = Path.Combine(directory, "images");
+        Directory.CreateDirectory(imageDirectory);
+        var imagePath = Path.Combine(imageDirectory, "equipment.png");
+        using (var bitmap = new Bitmap(2, 2))
+            bitmap.Save(imagePath);
+
+        File.WriteAllText(Path.Combine(directory, "01-image.json"),
+            WithImagePath(ValidEquipmentJson("IMAGE-01"), "images/equipment.png"));
+        File.WriteAllText(Path.Combine(directory, "02-outside.json"),
+            WithImagePath(ValidEquipmentJson("IMAGE-02"), "../outside.png"));
+
+        var result = EquipmentCatalog.Load(directory);
+        Assert(result.Equipment.Count == 2, "이미지 오류 때문에 장비 정의가 제외되었습니다.");
+        Assert(result.Equipment[0].ImagePath == imagePath, "정상 이미지 경로가 해석되지 않았습니다.");
+        Assert(result.Equipment[1].ImagePath is null, "폴더 밖 이미지 경로가 허용되었습니다.");
+        Assert(result.Errors.Count == 1, "잘못된 이미지 경로 경고가 보고되지 않았습니다.");
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+});
 
 await CheckAsync("정상 레시피 파싱", () =>
 {
@@ -116,7 +195,7 @@ static RecipeDocument CreateRecipe(int durationSeconds) => new()
 
 static TestRun CreateRun(RecipeDocument recipe, TestSimulationSettings simulation)
 {
-    var definition = EquipmentCatalog.Create()[0];
+    var definition = EquipmentCatalog.Load(Path.Combine("equipment")).Equipment[0];
     return new TestRun
     {
         RunId = Guid.NewGuid().ToString("N"),
@@ -126,4 +205,30 @@ static TestRun CreateRun(RecipeDocument recipe, TestSimulationSettings simulatio
         Simulation = simulation,
         StartedAt = DateTimeOffset.Now
     };
+}
+
+static string CreateTemporaryDirectory()
+{
+    var path = Path.Combine(Path.GetTempPath(), $"RecipeTestProject-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(path);
+    return path;
+}
+
+static string ValidEquipmentJson(string id) =>
+    $$"""
+    {
+      "id": "{{id}}",
+      "name": "테스트 장비",
+      "manufacturer": "WIS Systems",
+      "model": "WIS-3000",
+      "ipAddress": "192.168.10.1",
+      "port": 5001,
+      "accentColor": "#2173BA"
+    }
+    """;
+
+static string WithImagePath(string json, string imagePath)
+{
+    var closingBrace = json.LastIndexOf('}');
+    return json.Insert(closingBrace, $",\n  \"imagePath\": \"{imagePath}\"\n");
 }
