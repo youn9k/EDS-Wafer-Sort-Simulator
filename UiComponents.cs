@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace RecipeTestProject;
 
 internal static class AppTheme
@@ -137,6 +135,7 @@ internal sealed class EquipmentCard : Panel
     private readonly PictureBox _image;
     private readonly Label _overlay;
     private readonly Label _status;
+    private readonly ToolTip _toolTip = new();
 
     public EquipmentCard(EquipmentState equipment)
     {
@@ -172,8 +171,13 @@ internal sealed class EquipmentCard : Panel
             Font = new Font("맑은 고딕", 11F, FontStyle.Bold),
             ForeColor = AppTheme.Text,
             Location = new Point(16, 166),
-            AutoSize = true
+            Size = new Size(260, 26),
+            AutoSize = false,
+            AutoEllipsis = true,
+            UseMnemonic = false,
+            TextAlign = ContentAlignment.MiddleLeft
         };
+        _toolTip.SetToolTip(name, equipment.Definition.Name);
         var model = new Label
         {
             Text = $"{equipment.Definition.Manufacturer} · {equipment.Definition.Model}",
@@ -194,6 +198,12 @@ internal sealed class EquipmentCard : Panel
         Controls.Add(_image);
         WireDoubleClick(this);
         RefreshState();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _toolTip.Dispose();
+        base.Dispose(disposing);
     }
 
     public event EventHandler? Activated;

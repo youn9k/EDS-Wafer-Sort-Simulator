@@ -30,7 +30,7 @@
         {
             components = new System.ComponentModel.Container();
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1360, 820);
+            ClientSize = new Size(1550, 940);
             MinimumSize = new Size(1050, 680);
             StartPosition = FormStartPosition.CenterScreen;
             Text = "웨이퍼 검사 장비 테스트";
