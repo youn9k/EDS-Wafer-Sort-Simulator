@@ -67,20 +67,29 @@ public partial class Form1 : Form
         var sidebar = new Panel { Dock = DockStyle.Left, Width = 205, BackColor = Color.FromArgb(35, 48, 61), Padding = new Padding(12, 22, 12, 12) };
         var product = new Label
         {
-            Text = "WAFER INSPECT\r\nTEST CENTER", Dock = DockStyle.Top, Height = 76, ForeColor = Color.White,
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold), Padding = new Padding(8, 4, 0, 0)
+            Text = "WAFER INSPECT\r\nTEST CENTER",
+            Dock = DockStyle.Top,
+            Height = 76,
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Padding = new Padding(8, 4, 0, 0)
         };
-        _equipmentNavigationButton = SidebarButton("▣   장비 목록");
+        _equipmentNavigationButton = SidebarButton("장비 목록");
         _equipmentNavigationButton.Click += (_, _) => ShowEquipmentList();
-        _jobsNavigationButton = SidebarButton("▦   전체 작업");
+        _jobsNavigationButton = SidebarButton("전체 작업");
         _jobsNavigationButton.Click += (_, _) => ShowJobList();
         sidebar.Controls.Add(_equipmentNavigationButton); sidebar.Controls.Add(_jobsNavigationButton); sidebar.Controls.Add(product);
 
         _contentHost = new Panel { Dock = DockStyle.Fill, BackColor = AppTheme.Background };
         _banner = new Label
         {
-            Dock = DockStyle.Top, Height = 44, Visible = false, TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(18, 0, 0, 0), ForeColor = Color.White, Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold)
+            Dock = DockStyle.Top,
+            Height = 44,
+            Visible = false,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(18, 0, 0, 0),
+            ForeColor = Color.White,
+            Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold)
         };
         _contentHost.Controls.Add(_banner);
         body.Controls.Add(_contentHost); body.Controls.Add(sidebar);
@@ -94,10 +103,16 @@ public partial class Form1 : Form
     {
         var button = new Button
         {
-            Text = text, Dock = DockStyle.Top, Height = 48, FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(35, 48, 61), ForeColor = Color.White,
-            TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(12, 0, 0, 0),
-            Cursor = Cursors.Hand, Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold)
+            Text = text,
+            Dock = DockStyle.Top,
+            Height = 48,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(35, 48, 61),
+            ForeColor = Color.White,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(12, 0, 0, 0),
+            Cursor = Cursors.Hand,
+            Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold)
         };
         button.FlatAppearance.BorderSize = 0;
         return button;
@@ -200,7 +215,9 @@ public partial class Form1 : Form
         var result = LotTestRunner.CreateRun(job, equipment.Definition, runId);
         var summary = new JobRunSummary
         {
-            RunId = runId, Status = JobStatus.Running, StartedAt = result.StartedAt,
+            RunId = runId,
+            Status = JobStatus.Running,
+            StartedAt = result.StartedAt,
             ResultFilePath = _artifacts.GetResultPath(job.JobId, runId),
             LogFilePath = _artifacts.GetLogPath(job.JobId, runId)
         };
@@ -527,8 +544,8 @@ public partial class Form1 : Form
     {
         var errors = _equipmentCatalog.Errors.Concat(_productCatalog.Errors).Concat(_recipeCatalog.Errors).ToList();
         foreach (var product in _productCatalog.Products)
-        foreach (var recipeId in product.AllowedRecipeIds.Where(id => !_recipeCatalog.Recipes.Any(r => string.Equals(r.RecipeId, id, StringComparison.OrdinalIgnoreCase))))
-            errors.Add($"{product.ProductId}: 허용 레시피를 찾을 수 없습니다 - {recipeId}");
+            foreach (var recipeId in product.AllowedRecipeIds.Where(id => !_recipeCatalog.Recipes.Any(r => string.Equals(r.RecipeId, id, StringComparison.OrdinalIgnoreCase))))
+                errors.Add($"{product.ProductId}: 허용 레시피를 찾을 수 없습니다 - {recipeId}");
         if (errors.Count == 0) return;
         MessageBox.Show(this, "일부 카탈로그 파일을 불러오지 못했습니다.\r\n\r\n" +
                               string.Join("\r\n", errors.Select(x => $"• {x}")),
