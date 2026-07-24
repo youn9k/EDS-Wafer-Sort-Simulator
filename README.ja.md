@@ -28,12 +28,8 @@ C# WinFormsで実装した半導体EDS Wafer Testシミュレーターです。F
 - [Supported Test Lines](#supported-test-lines)
 - [Architecture](#architecture)
 - [Simulation Model](#simulation-model)
-- [State & Recovery](#state--recovery)
-- [v3 Catalogs](#v3-catalogs)
+- [Catalogs](#catalogs)
 - [Output Structure](#output-structure)
-- [Project Structure](#project-structure)
-- [Testing](#testing)
-- [Limitations](#limitations)
 - [Credits & Disclaimer](#credits--disclaimer)
 - [License](#license)
 
@@ -44,11 +40,9 @@ C# WinFormsで実装した半導体EDS Wafer Testシミュレーターです。F
 - **25-Wafer Lotの順次実行**: Wafer01からWafer25までをRecipeステップごとにシミュレーション
 - **リアルタイム状態同期**: Jobカード、Test Cellカード、詳細・進行画面の進捗率と装置状態を更新
 - **検査済みDie UI**: WaferおよびDie UIから不良Dieを一目で確認
+- **結果レポート自動生成**: 歩留まりと主な失敗要因を含む顧客向けPDFレポート、および統合ログを自動生成
 - **Final Binと歩留まり分析**: Wafer/Lot歩留まり、Bin分布、Pareto、ステップ別失敗を集計
 - **装置エラーシミュレーション**: Tester・Prober・Probe Cardのエラー、Run失敗、Cellエラー保持、手動リセットに対応
-- **チェックポイントと復旧**: Wafer単位で保存し、異常終了を`Interrupted`として復旧、再実行履歴を保持
-- **結果レポート自動生成**: 歩留まりと主な失敗要因を含む顧客向けPDFレポート、および統合ログを自動生成
-- **Jobスナップショット**: Product・Recipe・Test Cellのカタログ変更後も既存Runの再現性を維持
 
 ## Quick Start
 
@@ -66,12 +60,6 @@ cd EDS-Wafer-Sort-Simulator
 dotnet restore
 dotnet build RecipeTestProject.slnx
 dotnet run --project RecipeTestProject.csproj
-```
-
-### SelfTests
-
-```powershell
-dotnet run --project RecipeTestProject.SelfTests/RecipeTestProject.SelfTests.csproj
 ```
 
 ## 使用例
@@ -218,29 +206,7 @@ flowchart LR
 - Lot歩留まりは完了した25枚全体の`PASS die合計 / 有効die合計`です。
 - 製品Final BinとCellエラーは分離して保存します。
 
-## State & Recovery
-
-```mermaid
-stateDiagram-v2
-    [*] --> Pending
-    Pending --> Running: ユーザーがRun開始
-    Running --> Completed: 25枚のWafer完了
-    Running --> Failed: Tester/Prober/Probe Cardエラー
-    Running --> Canceled: ユーザーがキャンセル
-    Running --> Interrupted: 異常終了から復旧
-    Completed --> Running: 新規Run
-    Failed --> Running: エラーリセット後に新規Run
-    Canceled --> Running: 新規Run
-    Interrupted --> Running: Wafer01から新規Run
-```
-
-- 各Wafer完了時にJob、部分結果JSON、ログをチェックポイント保存します。
-- 起動時に`Running`のまま残ったRunは`Interrupted`へ変更し、完了Waferを保持します。
-- 再実行は過去のRunを変更せず、Wafer01から新しいRunを作成します。
-- CellエラーはRun終了後も保持され、装置詳細画面の`エラーリセット`でのみ解除されます。
-- Job削除はメタデータだけを削除し、生成済み結果ファイルは保持します。
-
-## v3 Catalogs
+## Catalogs
 
 ### Product
 
@@ -302,8 +268,6 @@ stateDiagram-v2
 }
 ```
 
-従来のv1/v2光学検査ドキュメントには対応しません。不正なJSON、重複ID、必須項目の欠落、Product/Recipe/Cellの関係またはcapability不一致は、起動時の警告にファイル単位で表示されます。
-
 ## Output Structure
 
 実行データは`%LocalAppData%\RecipeTestProject`に保存されます。
@@ -324,47 +288,9 @@ RecipeTestProject/
 - Failed/Canceled/Interrupted Runでは部分JSONとログのみ保持します。
 - 結果ファイルが欠落または破損してもRun履歴と保存パスは維持します。
 
-## Project Structure
-
-```text
-EDS-Wafer-Sort-Simulator/
-├─ Products/                         # Product v3 catalog
-├─ Recipes/                          # Recipe v3 catalog
-├─ equipment/                        # Test Cell catalog and equipment images
-├─ docs/images/                      # README UI and PDF previews
-├─ RecipeTestProject.SelfTests/      # Domain, runner, storage, and PDF self-tests
-├─ Models.cs                         # Domain and persistence models
-├─ Services.cs                       # Catalog, runner, storage, and recovery services
-├─ UiComponents.cs                   # WinForms screens and reusable controls
-├─ ReportService.cs                  # PDF report generation
-└─ RecipeTestProject.slnx
-```
-
-## Testing
-
-SelfTestsでは次のシナリオを検証します。
-
-- Product/Recipe/Test Cell v3必須項目、関係、capability互換性
-- Product → Recipe → Test Cellフィルター
-- 動的300/200 mm die geometryと95%合格境界
-- 98%基本歩留まり、均等Bin分布、代表Bin 60%
-- 決定的な結果生成と25-Wafer Lot完了
-- Tester・Prober・Probe Cardエラー、キャンセル、手動エラーリセット
-- Cell接続・占有状態と同時実行の防止
-- Waferチェックポイント、欠落結果、既存データ保持
-- JSON・ログ・PDF生成とLow Yield map付録
-
-## Limitations
-
-- 対象はFab-out WaferのEDS電気的選別フローに限定されます。
-- Burn-in、実際のRepair、Package Final Test、Module/SLTは含みません。
-- 実際のATE/Prober通信プロトコルとハードウェア制御は実装していません。
-- 歩留まり、Final Bin、エラー結果はポートフォリオ目的の決定的シミュレーションデータです。
-- TesterとProberの組み合わせは実製品を参考にしていますが、Probe Cardとネットワーク接続は仮想構成です。
-
 ## Credits & Disclaimer
 
-装置カードには各メーカーが公開している製品写真を組み合わせて使用しています。製品名、商標、写真の権利は各メーカーに帰属し、本プロジェクトは各メーカーとの提携または保証を受けたものではありません。
+製品名、商標、写真の権利は各メーカーに帰属し、本プロジェクトは商用利用していません。
 
 - [Advantest T5503HS2](https://www.advantest.com/tw/products/semiconductor-test-system/memory/t5503hs2/)
 - [Teradyne J750Ex-HD](https://www.teradyne.com/products/j750/?lang=en)

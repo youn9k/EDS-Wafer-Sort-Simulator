@@ -28,12 +28,8 @@ A semiconductor EDS Wafer Test simulator built with C# WinForms. It models a vir
 - [Supported Test Lines](#supported-test-lines)
 - [Architecture](#architecture)
 - [Simulation Model](#simulation-model)
-- [State & Recovery](#state--recovery)
-- [v3 Catalogs](#v3-catalogs)
+- [Catalogs](#catalogs)
 - [Output Structure](#output-structure)
-- [Project Structure](#project-structure)
-- [Testing](#testing)
-- [Limitations](#limitations)
 - [Credits & Disclaimer](#credits--disclaimer)
 - [License](#license)
 
@@ -44,11 +40,9 @@ A semiconductor EDS Wafer Test simulator built with C# WinForms. It models a vir
 - **Sequential 25-Wafer Lot execution**: simulates Wafer01 through Wafer25 across Recipe steps
 - **Real-time state synchronization**: updates progress and equipment state on Job cards, Test Cell cards, detail screens, and the progress screen
 - **Inspected Die UI**: identifies failed dies at a glance through Wafer and Die views
+- **Automatic result reports**: generates a customer-facing PDF with yield and major failure factors, plus an integrated log
 - **Final Bin and yield analysis**: aggregates Wafer/Lot yield, Bin distribution, Pareto, and step-level failures
 - **Equipment error simulation**: supports Tester, Prober, and Probe Card failures, persistent Cell errors, and manual reset
-- **Checkpoint and recovery**: stores each completed Wafer, restores abnormal shutdowns as `Interrupted`, and preserves rerun history
-- **Automatic result reports**: generates a customer-facing PDF with yield and major failure factors, plus an integrated log
-- **Job snapshots**: preserves Product, Recipe, and Test Cell definitions so existing Runs remain reproducible after catalog changes
 
 ## Quick Start
 
@@ -66,12 +60,6 @@ cd EDS-Wafer-Sort-Simulator
 dotnet restore
 dotnet build RecipeTestProject.slnx
 dotnet run --project RecipeTestProject.csproj
-```
-
-### SelfTests
-
-```powershell
-dotnet run --project RecipeTestProject.SelfTests/RecipeTestProject.SelfTests.csproj
 ```
 
 ## Usage Example
@@ -218,29 +206,7 @@ flowchart LR
 - Lot yield is `total PASS dies / total valid dies` across all 25 completed Wafers.
 - Product Final Bins and Cell errors are stored separately.
 
-## State & Recovery
-
-```mermaid
-stateDiagram-v2
-    [*] --> Pending
-    Pending --> Running: User starts Run
-    Running --> Completed: 25 Wafers complete
-    Running --> Failed: Tester/Prober/Probe Card error
-    Running --> Canceled: User cancels
-    Running --> Interrupted: Abnormal shutdown recovery
-    Completed --> Running: New Run
-    Failed --> Running: Reset error and start new Run
-    Canceled --> Running: New Run
-    Interrupted --> Running: New Run from Wafer01
-```
-
-- Job state, partial result JSON, and log are checkpointed after every completed Wafer.
-- A Run left as `Running` on startup becomes `Interrupted`, preserving completed Wafers.
-- A rerun creates a new Run from Wafer01 without modifying earlier history.
-- A Cell error remains after Run completion until `Reset Error` is used on the equipment detail screen.
-- Deleting a Job removes metadata only and preserves generated result files.
-
-## v3 Catalogs
+## Catalogs
 
 ### Product
 
@@ -302,8 +268,6 @@ stateDiagram-v2
 }
 ```
 
-Legacy v1/v2 optical inspection documents are not supported. Invalid JSON, duplicate IDs, missing fields, and Product/Recipe/Cell relationship or capability mismatches are reported per file in the startup warning.
-
 ## Output Structure
 
 Runtime data is stored under `%LocalAppData%\RecipeTestProject`.
@@ -324,47 +288,9 @@ RecipeTestProject/
 - Failed, Canceled, and Interrupted Runs preserve partial JSON and logs only.
 - Missing or damaged result files do not remove Run history or its stored path.
 
-## Project Structure
-
-```text
-EDS-Wafer-Sort-Simulator/
-├─ Products/                         # Product v3 catalog
-├─ Recipes/                          # Recipe v3 catalog
-├─ equipment/                        # Test Cell catalog and equipment images
-├─ docs/images/                      # README UI and PDF previews
-├─ RecipeTestProject.SelfTests/      # Domain, runner, storage, and PDF self-tests
-├─ Models.cs                         # Domain and persistence models
-├─ Services.cs                       # Catalog, runner, storage, and recovery services
-├─ UiComponents.cs                   # WinForms screens and reusable controls
-├─ ReportService.cs                  # PDF report generation
-└─ RecipeTestProject.slnx
-```
-
-## Testing
-
-SelfTests cover:
-
-- Product/Recipe/Test Cell v3 required fields, relationships, and capability compatibility
-- Product → Recipe → Test Cell filtering
-- Dynamic 300/200 mm die geometry and the 95% acceptance boundary
-- Default 98% yield, equal Bin distribution, and dominant Bin 60%
-- Deterministic generation and full 25-Wafer completion
-- Tester, Prober, and Probe Card errors, cancellation, and manual reset
-- Cell connection/occupancy state and concurrent Run blocking
-- Wafer checkpoints, missing results, and preservation of existing data
-- JSON, log, and PDF generation with Low Yield map appendices
-
-## Limitations
-
-- The scope is limited to EDS electrical sorting of Fab-out Wafers.
-- Burn-in, physical Repair, Package Final Test, and Module/SLT are excluded.
-- Real ATE/Prober communication protocols and hardware control are not implemented.
-- Yield, Final Bin, and error results are deterministic simulation data for portfolio use.
-- Tester and Prober combinations reference real products, while Probe Cards and network connections are virtual.
-
 ## Credits & Disclaimer
 
-Equipment cards combine publicly available manufacturer product images. Product names, trademarks, and images belong to their respective owners. This project is not affiliated with or endorsed by those manufacturers.
+Product names, trademarks, and images belong to their respective manufacturers. This project is not used commercially.
 
 - [Advantest T5503HS2](https://www.advantest.com/tw/products/semiconductor-test-system/memory/t5503hs2/)
 - [Teradyne J750Ex-HD](https://www.teradyne.com/products/j750/?lang=en)
