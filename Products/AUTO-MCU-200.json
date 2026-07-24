@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "3.0",
+  "productId": "AUTO-MCU-200",
+  "family": "SystemIc",
+  "name": "200 mm Automotive Mixed-Signal MCU Wafer",
+  "description": "Automotive Mixed-Signal MCU EDS용 200 mm Silicon Wafer",
+  "waferDiameterMm": 200,
+  "material": "Silicon",
+  "dieWidthMm": 8.0,
+  "dieHeightMm": 8.0,
+  "edgeExclusionMm": 3.0,
+  "acceptanceYieldPercent": 95.0,
+  "allowedRecipeIds": [
+    "AUTO-MCU-EDS-PROD"
+  ]
+}

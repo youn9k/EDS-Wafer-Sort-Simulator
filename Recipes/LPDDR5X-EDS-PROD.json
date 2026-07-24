@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "3.0",
+  "recipeId": "LPDDR5X-EDS-PROD",
+  "name": "LPDDR5X Production EDS",
+  "version": "3.0.0",
+  "productFamily": "Memory",
+  "compatibleTestCellIds": [
+    "MEM-CELL-01"
+  ],
+  "requiredCapabilities": [
+    "LPDDR5X",
+    "300mm",
+    "FullWaferContact",
+    "HighSpeedMemory"
+  ],
+  "author": "EDS Process Engineering",
+  "createdAt": "2026-07-24T09:00:00+09:00",
+  "finalBins": [
+    {
+      "code": "PASS",
+      "displayName": "Pass",
+      "colorHex": "#27AE60",
+      "isPass": true
+    },
+    {
+      "code": "CONTACT_FAIL",
+      "displayName": "Contact Fail",
+      "colorHex": "#F39C12",
+      "isPass": false,
+      "relatedStepId": "CONTACT"
+    },
+    {
+      "code": "CELL_FAIL",
+      "displayName": "Memory Cell Fail",
+      "colorHex": "#E74C3C",
+      "isPass": false,
+      "relatedStepId": "CELL_TEST"
+    },
+    {
+      "code": "READ_WRITE_FAIL",
+      "displayName": "Read/Write Fail",
+      "colorHex": "#8E44AD",
+      "isPass": false,
+      "relatedStepId": "READ_WRITE"
+    },
+    {
+      "code": "TIMING_FAIL",
+      "displayName": "Timing Margin Fail",
+      "colorHex": "#3498DB",
+      "isPass": false,
+      "relatedStepId": "TIMING"
+    }
+  ],
+  "steps": [
+    {
+      "sequence": 1,
+      "id": "LOAD_CONTACT",
+      "name": "Wafer Load & Probe Contact",
+      "command": "PROBER.LOAD_AND_CONTACT",
+      "durationSeconds": 2,
+      "allowedErrorComponents": [ "Prober", "ProbeCard" ]
+    },
+    {
+      "sequence": 2,
+      "id": "CONTACT",
+      "name": "Contact/Continuity Check",
+      "command": "ATE.CONTACT_CHECK",
+      "durationSeconds": 2,
+      "allowedErrorComponents": [ "Tester", "Prober", "ProbeCard" ]
+    },
+    {
+      "sequence": 3,
+      "id": "CELL_TEST",
+      "name": "Memory Cell Test",
+      "command": "ATE.MARCH_CELL_TEST",
+      "durationSeconds": 6,
+      "allowedErrorComponents": [ "Tester", "ProbeCard" ]
+    },
+    {
+      "sequence": 4,
+      "id": "READ_WRITE",
+      "name": "Read/Write Pattern Test",
+      "command": "ATE.READ_WRITE_PATTERN",
+      "durationSeconds": 6,
+      "allowedErrorComponents": [ "Tester", "ProbeCard" ]
+    },
+    {
+      "sequence": 5,
+      "id": "TIMING",
+      "name": "Timing Margin Test",
+      "command": "ATE.TIMING_MARGIN",
+      "durationSeconds": 4,
+      "allowedErrorComponents": [ "Tester", "ProbeCard" ]
+    },
+    {
+      "sequence": 6,
+      "id": "BINNING",
+      "name": "Result Analysis & Die Binning",
+      "command": "ATE.FINAL_BINNING",
+      "durationSeconds": 2,
+      "allowedErrorComponents": [ "Tester" ]
+    },
+    {
+      "sequence": 7,
+      "id": "UNLOAD",
+      "name": "Wafer Unload",
+      "command": "PROBER.UNLOAD",
+      "durationSeconds": 2,
+      "allowedErrorComponents": [ "Prober" ]
+    }
+  ]
+}

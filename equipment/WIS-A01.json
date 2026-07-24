@@ -1,9 +1,0 @@
-{
-  "id": "WIS-A01",
-  "name": "검사 장비 A-01",
-  "manufacturer": "WIS Systems",
-  "model": "WIS-3000",
-  "ipAddress": "192.168.10.101",
-  "port": 5001,
-  "accentColor": "#2173BA"
-}

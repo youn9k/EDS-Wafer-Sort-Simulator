@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "3.0",
+  "productId": "LPDDR5X-300",
+  "family": "Memory",
+  "name": "300 mm LPDDR5X DRAM Wafer",
+  "description": "LPDDR5X 고속 DRAM EDS용 300 mm Silicon Wafer",
+  "waferDiameterMm": 300,
+  "material": "Silicon",
+  "dieWidthMm": 12.0,
+  "dieHeightMm": 8.0,
+  "edgeExclusionMm": 3.0,
+  "acceptanceYieldPercent": 95.0,
+  "allowedRecipeIds": [
+    "LPDDR5X-EDS-PROD"
+  ]
+}

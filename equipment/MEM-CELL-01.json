@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "3.0",
+  "id": "MEM-CELL-01",
+  "name": "Memory EDS Test Cell 01",
+  "line": "Memory Line",
+  "tester": {
+    "manufacturer": "Advantest",
+    "model": "T5503HS2",
+    "displayName": "Advantest T5503HS2 Memory Test System"
+  },
+  "prober": {
+    "manufacturer": "Tokyo Electron",
+    "model": "Prexa MS",
+    "displayName": "Tokyo Electron Prexa MS Wafer Prober"
+  },
+  "probeCard": {
+    "name": "LPDDR5X 300 mm Full-Wafer Probe Card",
+    "model": "L5X-FWC-300-VIRTUAL",
+    "fixedMounted": true
+  },
+  "supportedWaferDiametersMm": [ 300 ],
+  "capabilities": [ "LPDDR5X", "300mm", "FullWaferContact", "HighSpeedMemory" ],
+  "ipAddress": "192.168.30.11",
+  "port": 5001,
+  "accentColorHex": "#2068B3",
+  "imageSourceUrl": "https://www.advantest.com/tw/products/semiconductor-test-system/memory/t5503hs2/"
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "3.0",
+  "id": "SYS-CELL-01",
+  "name": "System IC EDS Test Cell 01",
+  "line": "System IC Line",
+  "tester": {
+    "manufacturer": "Teradyne",
+    "model": "J750Ex-HD",
+    "displayName": "Teradyne J750Ex-HD MCU Test System"
+  },
+  "prober": {
+    "manufacturer": "Tokyo Electron",
+    "model": "Precio octo",
+    "displayName": "Tokyo Electron Precio octo Wafer Prober"
+  },
+  "probeCard": {
+    "name": "Automotive MCU 200 mm Multi-Site Probe Card",
+    "model": "AUTO-MCU-MS-200-VIRTUAL",
+    "fixedMounted": true
+  },
+  "supportedWaferDiametersMm": [ 200 ],
+  "capabilities": [ "AutomotiveMCU", "200mm", "DigitalScan", "EmbeddedMemory", "MixedSignalADC_DAC" ],
+  "ipAddress": "192.168.40.11",
+  "port": 5001,
+  "accentColorHex": "#7A3E9D",
+  "imageSourceUrl": "https://www.teradyne.com/products/j750/?lang=en"
+}

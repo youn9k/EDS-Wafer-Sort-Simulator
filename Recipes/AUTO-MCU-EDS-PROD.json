@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "3.0",
+  "recipeId": "AUTO-MCU-EDS-PROD",
+  "name": "Automotive MCU Production EDS",
+  "version": "3.0.0",
+  "productFamily": "SystemIc",
+  "compatibleTestCellIds": [
+    "SYS-CELL-01"
+  ],
+  "requiredCapabilities": [
+    "AutomotiveMCU",
+    "200mm",
+    "DigitalScan",
+    "EmbeddedMemory",
+    "MixedSignalADC_DAC"
+  ],
+  "author": "EDS Process Engineering",
+  "createdAt": "2026-07-24T09:00:00+09:00",
+  "finalBins": [
+    {
+      "code": "PASS",
+      "displayName": "Pass",
+      "colorHex": "#27AE60",
+      "isPass": true
+    },
+    {
+      "code": "CONTACT_DC_FAIL",
+      "displayName": "Contact/DC Fail",
+      "colorHex": "#F39C12",
+      "isPass": false,
+      "relatedStepId": "CONTINUITY_DC"
+    },
+    {
+      "code": "DIGITAL_FAIL",
+      "displayName": "Digital/Scan Fail",
+      "colorHex": "#E74C3C",
+      "isPass": false,
+      "relatedStepId": "DIGITAL_SCAN"
+    },
+    {
+      "code": "EMBEDDED_MEMORY_FAIL",
+      "displayName": "Embedded Memory Fail",
+      "colorHex": "#8E44AD",
+      "isPass": false,
+      "relatedStepId": "EMBEDDED_MEMORY"
+    },
+    {
+      "code": "MIXED_SIGNAL_FAIL",
+      "displayName": "ADC/DAC Fail",
+      "colorHex": "#3498DB",
+      "isPass": false,
+      "relatedStepId": "MIXED_SIGNAL"
+    }
+  ],
+  "steps": [
+    {
+      "sequence": 1,
+      "id": "LOAD_CONTACT",
+      "name": "Wafer Load & Probe Contact",
+      "command": "PROBER.LOAD_AND_CONTACT",
+      "durationSeconds": 2,
+      "allowedErrorComponents": [ "Prober", "ProbeCard" ]
+    },
+    {
+      "sequence": 2,
+      "id": "CONTINUITY_DC",
+      "name": "Continuity & DC Test",
+      "command": "ATE.CONTINUITY_DC",
+      "durationSeconds": 4,
+      "allowedErrorComponents": [ "Tester", "Prober", "ProbeCard" ]
+    },
+    {
+      "sequence": 3,
+      "id": "DIGITAL_SCAN",
+      "name": "Digital Functional / Scan Test",
+      "command": "ATE.DIGITAL_SCAN",
+      "durationSeconds": 5,
+      "allowedErrorComponents": [ "Tester", "ProbeCard" ]
+    },
+    {
+      "sequence": 4,
+      "id": "EMBEDDED_MEMORY",
+      "name": "Embedded Memory Test",
+      "command": "ATE.EMBEDDED_MEMORY",
+      "durationSeconds": 4,
+      "allowedErrorComponents": [ "Tester", "ProbeCard" ]
+    },
+    {
+      "sequence": 5,
+      "id": "MIXED_SIGNAL",
+      "name": "Mixed-Signal ADC/DAC Test",
+      "command": "ATE.ADC_DAC",
+      "durationSeconds": 5,
+      "allowedErrorComponents": [ "Tester", "ProbeCard" ]
+    },
+    {
+      "sequence": 6,
+      "id": "BINNING",
+      "name": "Result Analysis & Die Binning",
+      "command": "ATE.FINAL_BINNING",
+      "durationSeconds": 2,
+      "allowedErrorComponents": [ "Tester" ]
+    },
+    {
+      "sequence": 7,
+      "id": "UNLOAD",
+      "name": "Wafer Unload",
+      "command": "PROBER.UNLOAD",
+      "durationSeconds": 2,
+      "allowedErrorComponents": [ "Prober" ]
+    }
+  ]
+}
