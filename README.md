@@ -1,93 +1,211 @@
-# EDS Wafer Sort Simulator
+<p align="center">
+  <img src="docs/images/hero.png" alt="EDS Wafer Sort Simulator 실행 화면" width="100%">
+</p>
 
-C# WinForms로 구현한 Fab-out Wafer의 **EDS(Electrical Die Sorting) Lot Job 관리 시뮬레이터**입니다. 고객 의뢰를 Product·Recipe·Test Cell 호환성에 따라 Job으로 구성하고 Wafer01~Wafer25를 순차 시험한 뒤 Final Bin map, 수율, 로그, JSON 체크포인트와 고객용 PDF를 생성합니다.
+<h1 align="center">EDS Wafer Sort Simulator</h1>
 
-Burn-in, 실제 Repair, Package Final Test, Module/SLT는 범위에 포함하지 않습니다.
+<p align="center">
+  <img src="https://img.shields.io/badge/C%23-512BD4?logo=csharp&logoColor=white" alt="C#">
+  <img src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white" alt=".NET 10">
+  <img src="https://img.shields.io/badge/WinForms-Windows-0078D4?logo=windows&logoColor=white" alt="WinForms">
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows11&logoColor=white" alt="Windows 10/11">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-35A853" alt="MIT License"></a>
+</p>
 
-## 포트폴리오에서 보여주는 업무 흐름
+<p align="center">
+  한국어 · <a href="README.en.md">English</a> · <a href="README.ja.md">日本語</a>
+</p>
+
+C# WinForms로 구현한 반도체 EDS Wafer Test 시뮬레이터입니다. Fab-out된 메모리 및 시스템 반도체 웨이퍼 Lot을 인수해, 제품과 호환되는 ATE Wafer Sort Test Cell을 배정하고 25장의 웨이퍼를 순차 테스트하는 가상의 OSAT Wafer Test 프로그램입니다.
+
+## 목차
+
+- [Key Features](#key-features)
+- [Quick Start](#quick-start)
+- [사용 예시](#사용-예시)
+- [Output Example](#output-example)
+- [Workflow](#workflow)
+- [Supported Test Lines](#supported-test-lines)
+- [Architecture](#architecture)
+- [Simulation Model](#simulation-model)
+- [Catalogs](#catalogs)
+- [Output Structure](#output-structure)
+- [Credits & Disclaimer](#credits--disclaimer)
+- [License](#license)
+
+## Key Features
+
+- **Catalog-driven Job 생성**: Product → Recipe → Test Cell 호환성을 JSON 카탈로그로 검증
+- **두 종류의 EDS Line**: LPDDR5X Memory Line과 Automotive Mixed-Signal MCU Line
+- **25-Wafer Lot 순차 실행**: Wafer01~Wafer25를 Recipe 단계별로 시뮬레이션
+- **실시간 상태 동기화**: Job 카드, Test Cell 카드, 상세·진행 화면의 진행률과 장비 상태 갱신
+- **검사된 Die UI 생성**: 웨이퍼와 다이(Die) UI를 통해 불량 다이를 한눈에 확인
+- **결과 보고서 자동 생성**: 수율 및 주요 실패 요인 등 고객용 PDF 보고서 자동 생성, 통합 로그
+- **Final Bin 및 수율 분석**: Wafer/Lot 수율, Bin 분포, Pareto, 단계별 실패 집계
+- **장비 오류 시뮬레이션**: Tester·Prober·Probe Card 오류, Run 실패, Cell 오류 유지 및 수동 리셋
+
+## Quick Start
+
+### 요구 환경
+
+- Windows 10 또는 Windows 11
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- 선택 사항: Visual Studio의 `.NET 데스크톱 개발` 워크로드
+
+### 설치 및 실행
+
+```powershell
+git clone https://github.com/youn9k/EDS-Wafer-Sort-Simulator.git
+cd EDS-Wafer-Sort-Simulator
+dotnet restore
+dotnet build RecipeTestProject.slnx
+dotnet run --project RecipeTestProject.csproj
+```
+
+## 사용 예시
+
+### 1. Test Cell 상태 확인
+
+장비 목록에서 Memory/System IC Line의 연결 상태, Tester, Prober 및 현재 Job을 확인합니다.
+
+<p align="center">
+  <img src="docs/images/equipment-list.png" alt="장비 목록 화면" width="900">
+</p>
+
+### 2. Job 생성
+
+고객명, 의뢰번호, Lot ID를 입력한 뒤 `Product → Recipe → Test Cell` 순서로 선택합니다. 호환되지 않는 Recipe와 Test Cell은 자동으로 제외됩니다.
+
+<p align="center">
+  <img src="docs/images/job-create.png" alt="Job 생성 화면" width="900">
+</p>
+
+### 3. 모의 EDS 결과 설정
+
+Lot 기본 목표 수율과 실패 Bin 분포를 지정하고, 필요한 경우 Wafer별 목표 수율 또는 구성품 오류를 재정의합니다.
+
+<p align="center">
+  <img src="docs/images/simulation-settings.png" alt="모의 EDS 결과 설정 화면" width="900">
+</p>
+
+### 4. 25-Wafer Lot 실행
+
+Wafer01부터 Wafer25까지 순차 실행하며 현재 Wafer, Recipe 단계, Cell 상태와 실시간 로그를 확인합니다.
+
+<p align="center">
+  <img src="docs/images/run-progress.png" alt="Lot 진행 화면" width="900">
+</p>
+
+### 5. 결과 분석
+
+Lot 수율, Final Bin Pareto와 25장 결과를 확인하고, Wafer별 Die map에서 불량 위치와 Bin을 분석합니다.
+
+<p align="center">
+  <img src="docs/images/result-summary.png" alt="Lot 결과 화면" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/images/wafer-detail.png" alt="Wafer 상세 화면" width="900">
+</p>
+
+## Output Example
+
+완료된 Run은 고객·Lot·Product·Recipe·Test Cell 정보, Lot/Test 요약과 25장 결과표를 포함한 PDF 보고서를 자동 생성합니다. Low Yield Wafer가 있으면 해당 Wafer의 Final Bin map을 부록에 추가합니다.
+
+### 보고서 요약
+
+<p align="center">
+  <img src="docs/images/report-summary.png" alt="PDF 결과 보고서 요약 페이지" width="760">
+</p>
+
+### Lot 및 Test 요약
+
+<p align="center">
+  <img src="docs/images/report-test-summary.png" alt="PDF Test 요약" width="900">
+</p>
+
+### Low Yield Wafer 부록
+
+<p align="center">
+  <img src="docs/images/report-low-yield.png" alt="PDF Low Yield Wafer 부록" width="760">
+</p>
+
+완료 Run의 자동 저장 파일:
+
+```text
+Results/{JobId}/{RunId}/
+├─ run-result.json
+├─ run.log
+└─ report.pdf
+```
+
+## Workflow
 
 ```mermaid
 flowchart LR
     A["고객 의뢰 / Lot 접수"] --> B["Product 선택"]
     B --> C["호환 Recipe 필터"]
     C --> D["연결된 Test Cell 배정"]
-    D --> E["Lot 기본 수율·Bin 분포 설정"]
-    E --> F["Wafer01~25 Recipe 실행"]
+    D --> E["Lot 수율·Bin 분포 설정"]
+    E --> F["Wafer01~25 순차 실행"]
     F --> G["Final Bin map·Lot/Test 집계"]
     G --> H["JSON·로그·PDF 자동 저장"]
 ```
 
 - Job은 Memory와 System IC Line을 함께 표현하는 공통 실행 단위입니다.
-- Product·Recipe·Test Cell은 Job 생성 시 스냅샷으로 저장합니다.
-- Test Cell은 Tester, Wafer Prober, 고정 Probe Card로 구성됩니다.
-- Cell 한 대에서는 Run 하나만 실행할 수 있으며 사용 중인 Cell의 대기 Job은 자동 시작하지 않습니다.
-- 각 Wafer 완료 시 결과를 체크포인트 저장하고 비정상 종료 Run은 `Interrupted`로 복구합니다.
-- Low Yield는 제품 결과이므로 다음 Wafer를 계속 처리하고, Cell 오류는 Run을 즉시 실패 처리합니다.
+- Test Cell은 Tester, Wafer Prober와 고정 Probe Card로 구성됩니다.
+- Cell 한 대에서는 Run 하나만 실행할 수 있으며 대기 Job은 자동 시작하지 않습니다.
 
-## 구성한 EDS Line
+## Supported Test Lines
 
-### Memory Line
+| 항목 | Memory Line | System IC Line |
+|---|---|---|
+| Product | 300 mm LPDDR5X DRAM Wafer | 200 mm Automotive Mixed-Signal MCU Wafer |
+| Tester | Advantest T5503HS2 | Teradyne J750Ex-HD |
+| Prober | Tokyo Electron Prexa MS | Tokyo Electron Precio octo |
+| Probe Card | LPDDR5X 300 mm Full-Wafer Probe Card | Automotive MCU 200 mm Multi-Site Probe Card |
+| Recipe | Load/Contact → Continuity → Memory Cell → Read/Write → Timing Margin → Binning → Unload | Load/Contact → Continuity/DC → Digital/Scan → Embedded Memory → ADC/DAC → Binning → Unload |
+| Final Bin | `PASS`, `CONTACT_FAIL`, `CELL_FAIL`, `READ_WRITE_FAIL`, `TIMING_FAIL` | `PASS`, `CONTACT_DC_FAIL`, `DIGITAL_FAIL`, `EMBEDDED_MEMORY_FAIL`, `MIXED_SIGNAL_FAIL` |
 
-![Memory EDS Test Cell](equipment/images/MEM-CELL-01.png)
+## Architecture
 
-- Product: `300 mm LPDDR5X DRAM Wafer`
-- Tester: Advantest `T5503HS2`
-- Prober: Tokyo Electron `Prexa MS`
-- Probe Card: `LPDDR5X 300 mm Full-Wafer Probe Card` (가상 고정 Card)
-- Recipe: Load/Contact → Continuity → Memory Cell → Read/Write Pattern → Timing Margin → Die Binning → Unload
-- Final Bin: `PASS`, `CONTACT_FAIL`, `CELL_FAIL`, `READ_WRITE_FAIL`, `TIMING_FAIL`
+```mermaid
+flowchart LR
+    subgraph Catalog["v3 JSON Catalog"]
+        P["Products"]
+        R["Recipes"]
+        C["Test Cells"]
+    end
 
-### System IC Line
+    P --> F["Compatibility Filter"]
+    R --> F
+    C --> F
+    F --> J["Job Snapshot"]
+    J --> S["Simulation Settings"]
+    S --> L["Lot Test Runner"]
+    C --> T["Live Test Cell State"]
+    T --> L
+    L --> K["Wafer Checkpoint"]
+    K --> O["JSON / Log / PDF"]
+    K --> U["Result UI"]
+```
 
-![System IC EDS Test Cell](equipment/images/SYS-CELL-01.png)
+- 생성 시 Product·Recipe·Test Cell을 Job에 스냅샷으로 저장합니다.
+- 실시간 연결·점유·오류 상태는 `TestCellId`로 현재 Cell과 연결합니다.
+- 실행 엔진은 `IProgress<T>`로 UI에 진행 상황을 전달하고 `CancellationToken`으로 취소를 처리합니다.
 
-- Product: `200 mm Automotive Mixed-Signal MCU Wafer`
-- Tester: Teradyne `J750Ex-HD`
-- Prober: Tokyo Electron `Precio octo`
-- Probe Card: `Automotive MCU 200 mm Multi-Site Probe Card` (가상 고정 Card)
-- Recipe: Load/Contact → Continuity/DC → Digital/Scan → Embedded Memory → ADC/DAC → Die Binning → Unload
-- Final Bin: `PASS`, `CONTACT_DC_FAIL`, `DIGITAL_FAIL`, `EMBEDDED_MEMORY_FAIL`, `MIXED_SIGNAL_FAIL`
+## Simulation Model
 
-## 화면과 조작
+- 실제 die 폭·높이로 격자를 만들고 die 중심이 `wafer radius - edge exclusion` 안에 있을 때만 유효 die로 사용합니다.
+- 목표 수율과 가장 가까운 정수 PASS die 수를 선택합니다.
+- `Run ID + Wafer ID`의 seed로 실패 die 위치와 Final Bin을 랜덤 생성합니다.
+- 기본 목표 수율은 98%, 네 실패 Bin 기본 분포는 각각 25%입니다.
+- Wafer별 대표 Bin은 실패 die의 60%를 차지하고 나머지는 Lot 분포에 따라 배정합니다.
+- Wafer 수율이 Product 기준 95% 이상이면 `Passed`, 미만이면 `LowYield`입니다.
+- Lot 수율은 완료된 25장 전체의 `PASS die 합계 / 유효 die 합계`입니다.
+- 제품 Final Bin과 Cell 오류는 분리합니다.
 
-### 전체 작업
-
-- 첫 번째 `Job 생성` 카드와 최신순 Job 카드
-- 고객명·의뢰번호·Lot ID 통합 검색 및 상태 필터
-- Job 상태, 최근 Run, `Low Yield 포함` 배지와 실시간 진행률
-- Running Job 더블클릭 시 진행 화면, 종료 Job은 결과 화면으로 이동
-
-### Job 생성과 상세
-
-- 고객명, 고객 의뢰번호, Lot ID, Product, Recipe, Test Cell을 필수 입력
-- Product → 허용 Recipe → 연결된 호환 Test Cell 순서로 필터
-- 항목이 하나여도 사용자가 직접 확인하고 선택
-- Test Cell이 사용 중이어도 Pending Job으로 배정 가능
-- 생성 후 Job 정보는 수정하지 않고 새 Run만 추가
-
-### 모의 EDS 결과 설정
-
-- Lot 기본 목표 수율은 98%, 네 실패 Bin 기본 분포는 각각 25%
-- Wafer별로 Lot 기본값을 해제해 목표 수율과 대표 실패 Bin을 재정의
-- 대표 Bin은 해당 Wafer 실패 die의 60%, 나머지는 Lot 분포에 따라 배정
-- Tester·Prober·Probe Card 중 하나와 발생 Wafer·허용 Recipe 단계를 선택해 Run 오류 구성
-- 실행 속도는 `1× / 5× / 10× / 20×`, 기본은 `20×`
-
-### 장비 목록
-
-- Test Cell 카드에 Line, Tester, Prober, 연결/유휴/작업/오류 상태와 실시간 진행률 표시
-- 상세 화면에서 구성품 상태, 고정 Probe Card, 현재 Job, 최근 Run 확인
-- Cell 단위 연결/해제 및 오류 발생 후 수동 `오류 리셋`
-
-### 결과
-
-- `Lot 요약`: Lot 수율, Passed/Low Yield Wafer, PASS/FAIL die, 25장 표, Final Bin Pareto
-- `Wafer 상세`: Product die 치수 기반 동적 원형 map, Bin 범례/개수, 선택 die의 Row·Column·Final Bin
-- `Test 요약`: Final Bin과 Recipe 단계를 연결한 실패 die/실패율/영향 Wafer 집계
-- `로그`: Lot 전체 또는 Wafer별 필터
-- 완료 Run만 PDF를 자동 생성하고 Low Yield Wafer map만 부록에 포함
-
-## v3 카탈로그
+## Catalogs
 
 ### Product
 
@@ -98,7 +216,6 @@ flowchart LR
   "family": "Memory",
   "name": "300 mm LPDDR5X DRAM Wafer",
   "waferDiameterMm": 300,
-  "material": "Silicon",
   "dieWidthMm": 12.0,
   "dieHeightMm": 8.0,
   "edgeExclusionMm": 3.0,
@@ -124,16 +241,6 @@ flowchart LR
       "relatedStepId": "CELL_TEST",
       "colorHex": "#E74C3C"
     }
-  ],
-  "steps": [
-    {
-      "sequence": 3,
-      "id": "CELL_TEST",
-      "name": "Memory Cell Test",
-      "command": "ATE.MARCH_CELL_TEST",
-      "durationSeconds": 6,
-      "allowedErrorComponents": ["Tester", "ProbeCard"]
-    }
   ]
 }
 ```
@@ -155,48 +262,12 @@ flowchart LR
     "model": "Prexa MS",
     "imageFile": "images/tel-prexa-ms.jpg"
   },
-  "probeCard": {
-    "name": "LPDDR5X 300 mm Full-Wafer Probe Card",
-    "fixedMounted": true
-  },
   "supportedWaferDiametersMm": [300],
   "capabilities": ["LPDDR5X", "300mm", "FullWaferContact", "HighSpeedMemory"]
 }
 ```
 
-v1/v2 광학 검사 문서는 지원하지 않습니다. 잘못된 JSON, 중복 ID, 필수값 누락, Product/Recipe/Cell 관계 또는 capability 불일치는 시작 경고에 파일별로 표시됩니다.
-
-## 결과 생성 규칙
-
-- die 중심이 `wafer radius - edge exclusion` 안에 있을 때만 유효 die입니다.
-- 목표 수율과 가장 가까운 정수 PASS die 수를 사용합니다.
-- `Run ID + Wafer ID`의 결정적 seed로 실패 die 위치와 Final Bin을 생성합니다.
-- Wafer 수율이 Product 기준 95% 이상이면 `Passed`, 미만이면 `LowYield`입니다.
-- 완료 Lot 수율은 25장 전체의 `PASS die 합계 / 유효 die 합계`입니다.
-- 제품 Final Bin과 Cell 오류는 분리합니다. Cell 오류 Wafer는 `EquipmentError`, 이후 Wafer는 `NotRun`입니다.
-
-## 상태 전이와 복구
-
-```mermaid
-stateDiagram-v2
-    [*] --> Pending
-    Pending --> Running: 사용자 EDS 시작
-    Running --> Completed: Wafer 25장 완료
-    Running --> Failed: Tester/Prober/Probe Card 오류
-    Running --> Canceled: 사용자 취소
-    Running --> Interrupted: 비정상 종료 복구
-    Completed --> Running: 새 Run
-    Failed --> Running: Cell 오류 리셋 후 새 Run
-    Canceled --> Running: 새 Run
-    Interrupted --> Running: Wafer01부터 새 Run
-```
-
-- Cell 오류는 Run 종료 후에도 유지되며 장비 상세에서 수동 리셋해야 합니다.
-- 사용자 취소와 비정상 종료는 완료된 Wafer 결과를 보존합니다.
-- 결과 파일이 없거나 손상돼도 Run 이력을 삭제하지 않고 저장 경로를 보여줍니다.
-- Job 삭제는 메타데이터만 삭제하며 `Results` 파일은 보존합니다.
-
-## 저장 구조
+## Output Structure
 
 실행 데이터는 `%LocalAppData%\RecipeTestProject`에 저장됩니다.
 
@@ -211,35 +282,22 @@ RecipeTestProject/
       └─ report.pdf
 ```
 
-- 앱 시작 시 기존 `jobs.json`, `Results`, 카탈로그 파일을 자동 삭제하지 않습니다.
-- 기존 광학 데이터 정리가 필요하면 사용자가 명시적으로 백업·정리합니다.
 - Job과 Run 체크포인트 JSON은 임시 파일 작성 후 교체합니다.
+- 완료 Run은 JSON·로그·PDF를 저장합니다.
+- Failed/Canceled/Interrupted Run은 부분 JSON과 로그만 보존합니다.
+- 결과 파일이 누락되거나 손상돼도 Run 이력과 저장 경로는 유지합니다.
 
-## 실행과 검증
+## Credits & Disclaimer
 
-요구 사항은 Windows와 .NET 10 SDK입니다.
+제품명, 상표와 사진의 권리는 각 제조사에 있으며 본 프로젝트는 상업적으로 활용하지 않습니다.
 
-```powershell
-dotnet restore
-dotnet build RecipeTestProject.slnx
-dotnet run --project RecipeTestProject.csproj
-dotnet run --project RecipeTestProject.SelfTests/RecipeTestProject.SelfTests.csproj
-```
+- [Advantest T5503HS2](https://www.advantest.com/tw/products/semiconductor-test-system/memory/t5503hs2/)
+- [Teradyne J750Ex-HD](https://www.teradyne.com/products/j750/?lang=en)
+- [Tokyo Electron Prexa MS](https://www.tel.com/product/prexa.html)
+- [Tokyo Electron Precio octo](https://www.tel.com/product/precio.html)
 
-SelfTests는 v3 카탈로그, 호환 필터, 동적 die map, 95% 경계, 균등/대표 Final Bin, 결정적 결과, 25장 완료, 구성품별 오류, 취소, 점유 차단, 체크포인트, 시작 시 기존 데이터 보존과 PDF 생성을 검증합니다. 예시 보고서는 `output/pdf/sample-eds-lot-report.pdf`에 생성됩니다.
+## License
 
-## 기술 구성
+소스 코드는 [MIT License](LICENSE)로 배포됩니다.
 
-- .NET 10 / C# / Windows Forms
-- `System.Text.Json`
-- `async/await`, `CancellationToken`, `IProgress<T>`
-- PDFsharp-MigraDoc-GDI 6.2.4
-
-## 장비 사진·상표 출처
-
-장비 카드는 각 제조사의 공개 제품 사진을 조합해 사용합니다. 사진과 상표의 권리는 각 제조사에 있습니다.
-
-- Advantest T5503HS2: https://www.advantest.com/tw/products/semiconductor-test-system/memory/t5503hs2/
-- Teradyne J750Ex-HD: https://www.teradyne.com/products/j750/?lang=en
-- Tokyo Electron Prexa MS: https://www.tel.com/product/prexa.html
-- Tokyo Electron Precio octo: https://www.tel.com/product/precio.html
+제조사 장비 사진, 제품명과 상표는 MIT License 적용 대상이 아니며 각 권리자에게 귀속됩니다.
