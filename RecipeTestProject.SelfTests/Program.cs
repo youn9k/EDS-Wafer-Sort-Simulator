@@ -265,21 +265,23 @@ await CheckAsync("Job/체크포인트 저장과 누락 결과 처리", async () 
     }
 });
 
-await CheckAsync("광학 데이터 최초 1회 삭제와 EDS 데이터 보존", () =>
+await CheckAsync("앱 시작 시 기존 데이터 보존", () =>
 {
     var temp = CreateTemp();
     try
     {
-        File.WriteAllText(Path.Combine(temp, "jobs.json"), "legacy");
+        var jobsPath = Path.Combine(temp, "jobs.json");
+        File.WriteAllText(jobsPath, "legacy");
         var results = Path.Combine(temp, "Results");
         Directory.CreateDirectory(results);
-        File.WriteAllText(Path.Combine(results, "legacy.json"), "{}");
-        Assert(EdsDataMigration.RunOnce(temp), "최초 마이그레이션이 실행되지 않았습니다.");
-        Assert(!File.Exists(Path.Combine(temp, "jobs.json")) && !Directory.Exists(results),
-            "기존 Job/Results가 삭제되지 않았습니다.");
-        File.WriteAllText(Path.Combine(temp, "jobs.json"), "eds");
-        Assert(!EdsDataMigration.RunOnce(temp), "마이그레이션이 두 번 실행됐습니다.");
-        Assert(File.Exists(Path.Combine(temp, "jobs.json")), "새 EDS Job이 재실행 시 삭제됐습니다.");
+        var resultPath = Path.Combine(results, "existing.json");
+        File.WriteAllText(resultPath, "{}");
+
+        var store = new JobStore(temp);
+        _ = store.Load();
+
+        Assert(File.Exists(jobsPath), "앱 시작 시 기존 jobs.json이 삭제됐습니다.");
+        Assert(File.Exists(resultPath), "앱 시작 시 기존 결과 파일이 삭제됐습니다.");
     }
     finally
     {
@@ -290,11 +292,14 @@ await CheckAsync("광학 데이터 최초 1회 삭제와 EDS 데이터 보존", 
 
 await CheckAsync("공식 Test Cell 이미지 자산", () =>
 {
-    foreach (var id in new[] { "MEM-CELL-01", "SYS-CELL-01" })
+    foreach (var cell in cells.TestCells)
     {
-        var path = Path.Combine(root, "equipment", $"{id}.png");
-        Assert(File.Exists(path) && new FileInfo(path).Length > 50_000,
-            $"{id} 공식 이미지 자산이 없습니다.");
+        foreach (var component in new[] { cell.Tester, cell.Prober })
+        {
+            Assert(
+                !string.IsNullOrWhiteSpace(component.ImagePath) && File.Exists(component.ImagePath),
+                $"{cell.Id} {component.Model} 공식 이미지 자산이 없습니다.");
+        }
     }
     return Task.CompletedTask;
 });

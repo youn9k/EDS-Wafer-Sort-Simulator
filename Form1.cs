@@ -36,7 +36,6 @@ public partial class Form1 : Form
     {
         _jobStore = new JobStore();
         _cellStore = new TestCellStateStore(_jobStore.RootDirectory);
-        EdsDataMigration.RunOnce(_jobStore.RootDirectory);
         _cellCatalog = TestCellCatalog.Load(Path.Combine(AppContext.BaseDirectory, "equipment"));
         _productCatalog = ProductCatalog.Load(Path.Combine(AppContext.BaseDirectory, "Products"));
         _recipeCatalog = RecipeCatalog.Load(Path.Combine(AppContext.BaseDirectory, "Recipes"));

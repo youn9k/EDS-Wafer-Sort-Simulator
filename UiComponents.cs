@@ -23,20 +23,22 @@ internal static class AppTheme
 
     private static Button CreateButton(string text, int width, Color back, Color fore, int border)
     {
+        var font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+        var measuredWidth = TextRenderer.MeasureText(text, font).Width + 38;
+        var actualWidth = Math.Max(width, measuredWidth);
         var button = new Button
         {
             Text = text,
-            Width = width,
+            Width = actualWidth,
             Height = 40,
-            MinimumSize = new Size(width, 40),
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(16, 0, 16, 0),
+            MinimumSize = new Size(actualWidth, 40),
+            AutoSize = false,
+            Padding = new Padding(12, 0, 12, 0),
             BackColor = back,
             ForeColor = fore,
             FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand,
-            Font = new Font("맑은 고딕", 9F, FontStyle.Bold),
+            Font = font,
             Margin = new Padding(6)
         };
         button.FlatAppearance.BorderSize = border;
@@ -129,18 +131,36 @@ internal static class TestCellImageFactory
 {
     public static Bitmap Create(TestCellDefinition cell, int width = 330, int height = 155)
     {
-        if (!string.IsNullOrWhiteSpace(cell.ImagePath))
+        using var testerImage = LoadImage(cell.Tester.ImagePath);
+        using var proberImage = LoadImage(cell.Prober.ImagePath);
+        if (testerImage is not null || proberImage is not null)
         {
-            try
-            {
-                using var stream = File.OpenRead(cell.ImagePath);
-                using var image = Image.FromStream(stream);
-                return new Bitmap(image);
-            }
-            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
-            {
-                // 이미지가 손상되어도 Cell 정보는 기본 도식으로 계속 표시한다.
-            }
+            var composite = new Bitmap(width, height);
+            using var compositeGraphics = Graphics.FromImage(composite);
+            compositeGraphics.Clear(Color.White);
+            compositeGraphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            compositeGraphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            compositeGraphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var gap = 12;
+            var halfWidth = (width - gap) / 2;
+            if (testerImage is not null)
+                DrawContained(
+                    compositeGraphics,
+                    testerImage,
+                    new Rectangle(6, 6, halfWidth - 6, height - 12));
+            if (proberImage is not null)
+                DrawContained(
+                    compositeGraphics,
+                    proberImage,
+                    new Rectangle(halfWidth + gap, 6, width - halfWidth - gap - 6, height - 12));
+            using var divider = new Pen(AppTheme.Border);
+            compositeGraphics.DrawLine(
+                divider,
+                halfWidth + gap / 2,
+                14,
+                halfWidth + gap / 2,
+                height - 14);
+            return composite;
         }
 
         var bitmap = new Bitmap(width, height);
@@ -162,6 +182,36 @@ internal static class TestCellImageFactory
         graphics.DrawString("TESTER", new Font("Segoe UI", 8F, FontStyle.Bold), dark, 50, 104);
         graphics.DrawString("WAFER PROBER", new Font("Segoe UI", 8F, FontStyle.Bold), dark, 183, 111);
         return bitmap;
+    }
+
+    private static Bitmap? LoadImage(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        try
+        {
+            using var stream = File.OpenRead(path);
+            using var image = Image.FromStream(stream);
+            return new Bitmap(image);
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static void DrawContained(Graphics graphics, Image image, Rectangle bounds)
+    {
+        var scale = Math.Min(
+            bounds.Width / (double)image.Width,
+            bounds.Height / (double)image.Height);
+        var width = Math.Max(1, (int)Math.Round(image.Width * scale));
+        var height = Math.Max(1, (int)Math.Round(image.Height * scale));
+        var target = new Rectangle(
+            bounds.Left + (bounds.Width - width) / 2,
+            bounds.Top + (bounds.Height - height) / 2,
+            width,
+            height);
+        graphics.DrawImage(image, target);
     }
 }
 
@@ -767,7 +817,7 @@ internal sealed class SimulationSettingsView : UserControl
 
         var settingsCard = AppTheme.CardPanel();
         settingsCard.Dock = DockStyle.Top;
-        settingsCard.Height = 205;
+        settingsCard.Height = 290;
         var lotTitle = AppTheme.Heading("Lot 기본값", 11F);
         lotTitle.Location = new Point(14, 12);
         settingsCard.Controls.Add(lotTitle);
@@ -775,24 +825,24 @@ internal sealed class SimulationSettingsView : UserControl
         {
             Text = "목표 수율",
             AutoSize = true,
-            Location = new Point(15, 51),
+            Location = new Point(15, 55),
             ForeColor = AppTheme.Muted
         });
         _defaultYield = NumericPercent(current.DefaultTargetYieldPercent);
-        _defaultYield.Location = new Point(92, 46);
+        _defaultYield.Location = new Point(105, 49);
         settingsCard.Controls.Add(_defaultYield);
         settingsCard.Controls.Add(new Label
         {
             Text = "실행 속도",
             AutoSize = true,
-            Location = new Point(218, 51),
+            Location = new Point(255, 55),
             ForeColor = AppTheme.Muted
         });
         _speed = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Location = new Point(295, 46),
-            Width = 100
+            Location = new Point(345, 49),
+            Width = 130
         };
         _speed.Items.AddRange(["1×", "5×", "10×", "20×"]);
         _speed.SelectedItem = $"{current.SpeedFactor}×";
@@ -804,40 +854,40 @@ internal sealed class SimulationSettingsView : UserControl
         {
             var box = NumericPercent(current.DefaultFailBinDistribution.GetValueOrDefault(bin.Code, 25));
             box.DecimalPlaces = 1;
-            box.Width = 82;
+            box.Width = 110;
             var label = new Label
             {
                 Text = bin.Code,
                 AutoSize = true,
-                Location = new Point(x, 88),
+                Location = new Point(x, 96),
                 ForeColor = AppTheme.Muted
             };
-            box.Location = new Point(x, 110);
+            box.Location = new Point(x, 124);
             _distribution[bin.Code] = box;
             settingsCard.Controls.Add(label);
             settingsCard.Controls.Add(box);
-            x += 190;
+            x += 205;
         }
 
         _errorEnabled = new CheckBox
         {
             Text = "구성품 오류 발생",
             AutoSize = true,
-            Location = new Point(15, 160),
+            Location = new Point(15, 187),
             Checked = current.CellError.Enabled
         };
         _errorComponent = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Location = new Point(150, 155),
-            Width = 120
+            Location = new Point(180, 182),
+            Width = 130
         };
         _errorComponent.Items.AddRange(["Tester", "Prober", "Probe Card"]);
         _errorComponent.SelectedItem = ComponentText(current.CellError.Component);
         _errorWafer = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Location = new Point(280, 155),
+            Location = new Point(325, 182),
             Width = 110
         };
         _errorWafer.Items.AddRange(Enumerable.Range(1, 25).Select(i => $"Wafer{i:00}").Cast<object>().ToArray());
@@ -845,8 +895,8 @@ internal sealed class SimulationSettingsView : UserControl
         _errorStep = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Location = new Point(400, 155),
-            Width = 310
+            Location = new Point(450, 182),
+            Width = 340
         };
         _errorEnabled.CheckedChanged += (_, _) => UpdateErrorControls();
         _errorComponent.SelectedIndexChanged += (_, _) => UpdateErrorSteps(current.CellError.FailedStepId);
@@ -856,8 +906,8 @@ internal sealed class SimulationSettingsView : UserControl
         settingsCard.Controls.Add(_errorStep);
 
         var save = AppTheme.PrimaryButton("설정 저장", 120);
-        save.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        save.Location = new Point(settingsCard.Width - save.Width - 14, 151);
+        save.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+        save.Location = new Point(settingsCard.Width - save.Width - 14, 232);
         settingsCard.Resize += (_, _) => save.Left = settingsCard.ClientSize.Width - save.Width - 14;
         save.Click += (_, _) => Save();
         settingsCard.Controls.Add(save);
@@ -865,7 +915,8 @@ internal sealed class SimulationSettingsView : UserControl
         {
             AutoSize = true,
             ForeColor = AppTheme.Danger,
-            Location = new Point(725, 160)
+            Location = new Point(15, 247),
+            MaximumSize = new Size(650, 36)
         };
         settingsCard.Controls.Add(_message);
 
@@ -934,7 +985,7 @@ internal sealed class SimulationSettingsView : UserControl
         Maximum = 100,
         DecimalPlaces = 2,
         Increment = .1M,
-        Width = 105,
+        Width = 125,
         Value = (decimal)Math.Clamp(value, 0, 100)
     };
 
@@ -1592,8 +1643,8 @@ internal sealed class TestCellSummaryCard : Panel
     public TestCellSummaryCard(TestCellState cell)
     {
         _cell = cell;
-        Width = 370;
-        Height = 340;
+        Width = 390;
+        Height = 380;
         BackColor = Color.White;
         BorderStyle = BorderStyle.FixedSingle;
         Margin = new Padding(0, 0, 16, 16);
@@ -1609,7 +1660,7 @@ internal sealed class TestCellSummaryCard : Panel
         var title = new Label
         {
             Dock = DockStyle.Top,
-            Height = 40,
+            Height = 46,
             Padding = new Padding(16, 10, 16, 0),
             Text = cell.Definition.Name,
             Font = new Font("맑은 고딕", 11F, FontStyle.Bold),
@@ -1618,8 +1669,8 @@ internal sealed class TestCellSummaryCard : Panel
         var detail = new Label
         {
             Dock = DockStyle.Top,
-            Height = 66,
-            Padding = new Padding(16, 4, 16, 0),
+            Height = 86,
+            Padding = new Padding(16, 6, 16, 0),
             ForeColor = AppTheme.Muted,
             AutoEllipsis = true,
             Text = $"{cell.Definition.Line}\r\nTester  {cell.Definition.Tester.Model}\r\nProber  {cell.Definition.Prober.Model}"
@@ -1627,8 +1678,8 @@ internal sealed class TestCellSummaryCard : Panel
         _status = new Label
         {
             Dock = DockStyle.Top,
-            Height = 34,
-            Padding = new Padding(16, 5, 16, 0),
+            Height = 38,
+            Padding = new Padding(16, 7, 16, 0),
             Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold)
         };
         _current = new Label
@@ -1741,9 +1792,15 @@ internal sealed class TestCellDetailView : UserControl
         action.Height = 118;
         _toggle = AppTheme.SecondaryButton("Cell 연결", 120);
         _toggle.Click += (_, _) => ConnectionToggleRequested?.Invoke();
-        _reset = AppTheme.DangerButton("오류 리셋", 120);
+        _reset = AppTheme.DangerButton("오류 리셋", 130);
         _reset.Click += (_, _) => ErrorResetRequested?.Invoke();
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 280 };
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Left,
+            Width = 360,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
         actions.Controls.Add(_toggle);
         actions.Controls.Add(_reset);
         _currentJob = new Label

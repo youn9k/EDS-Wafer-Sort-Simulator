@@ -6,12 +6,14 @@
   "tester": {
     "manufacturer": "Advantest",
     "model": "T5503HS2",
-    "displayName": "Advantest T5503HS2 Memory Test System"
+    "displayName": "Advantest T5503HS2 Memory Test System",
+    "imageFile": "images/advantest-t5503hs2.png"
   },
   "prober": {
     "manufacturer": "Tokyo Electron",
     "model": "Prexa MS",
-    "displayName": "Tokyo Electron Prexa MS Wafer Prober"
+    "displayName": "Tokyo Electron Prexa MS Wafer Prober",
+    "imageFile": "images/tel-prexa-ms.jpg"
   },
   "probeCard": {
     "name": "LPDDR5X 300 mm Full-Wafer Probe Card",

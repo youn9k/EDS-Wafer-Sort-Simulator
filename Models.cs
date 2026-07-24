@@ -13,6 +13,8 @@ public sealed class TestCellComponentDefinition
     public string Manufacturer { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+    public string ImageFile { get; set; } = string.Empty;
+    [JsonIgnore] public string? ImagePath { get; set; }
 }
 
 public sealed class ProbeCardDefinition
@@ -38,7 +40,6 @@ public sealed class TestCellDefinition
     public string AccentColorHex { get; set; } = "#2068B3";
     public string? ImageSourceUrl { get; set; }
     [JsonIgnore] public Color AccentColor { get; set; }
-    [JsonIgnore] public string? ImagePath { get; set; }
 }
 
 public sealed class TestCellState

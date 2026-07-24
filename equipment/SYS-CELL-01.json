@@ -6,12 +6,14 @@
   "tester": {
     "manufacturer": "Teradyne",
     "model": "J750Ex-HD",
-    "displayName": "Teradyne J750Ex-HD MCU Test System"
+    "displayName": "Teradyne J750Ex-HD MCU Test System",
+    "imageFile": "images/teradyne-j750ex-hd.jpg"
   },
   "prober": {
     "manufacturer": "Tokyo Electron",
     "model": "Precio octo",
-    "displayName": "Tokyo Electron Precio octo Wafer Prober"
+    "displayName": "Tokyo Electron Precio octo Wafer Prober",
+    "imageFile": "images/tel-precio-octo.jpg"
   },
   "probeCard": {
     "name": "Automotive MCU 200 mm Multi-Site Probe Card",

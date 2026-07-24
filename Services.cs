@@ -45,7 +45,16 @@ public static class TestCellCatalog
                 if (!ids.Add(item.Id))
                     throw new InvalidDataException($"중복 Test Cell ID입니다: {item.Id}");
                 item.AccentColor = ParseColor(item.AccentColorHex);
-                item.ImagePath = ResolveImagePath(path, errors);
+                item.Tester.ImagePath = ResolveImagePath(
+                    path,
+                    item.Tester.ImageFile,
+                    "Tester",
+                    errors);
+                item.Prober.ImagePath = ResolveImagePath(
+                    path,
+                    item.Prober.ImageFile,
+                    "Prober",
+                    errors);
                 items.Add(item);
             }
             catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or InvalidDataException)
@@ -89,20 +98,39 @@ public static class TestCellCatalog
         Required(value.Manufacturer, $"{field}.manufacturer", errors);
         Required(value.Model, $"{field}.model", errors);
         Required(value.DisplayName, $"{field}.displayName", errors);
+        Required(value.ImageFile, $"{field}.imageFile", errors);
     }
 
-    private static string? ResolveImagePath(string jsonPath, ICollection<string> errors)
+    private static string? ResolveImagePath(
+        string jsonPath,
+        string relativePath,
+        string componentName,
+        ICollection<string> errors)
     {
-        var baseName = Path.GetFileNameWithoutExtension(jsonPath);
-        var directory = Path.GetDirectoryName(jsonPath)!;
-        foreach (var extension in new[] { ".png", ".jpg", ".jpeg" })
+        if (string.IsNullOrWhiteSpace(relativePath)) return null;
+        try
         {
-            var candidate = Path.Combine(directory, baseName + extension);
+            var catalogDirectory = Path.GetFullPath(Path.GetDirectoryName(jsonPath)!);
+            var candidate = Path.GetFullPath(Path.Combine(
+                catalogDirectory,
+                relativePath.Replace('/', Path.DirectorySeparatorChar)));
+            var catalogPrefix = catalogDirectory.TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (!candidate.StartsWith(catalogPrefix, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("카탈로그 폴더 밖의 경로는 사용할 수 없습니다.");
             if (File.Exists(candidate)) return candidate;
-        }
 
-        errors.Add($"{Path.GetFileName(jsonPath)}: 공식 제품 이미지 파일을 찾을 수 없어 기본 도식을 사용합니다.");
-        return null;
+            errors.Add(
+                $"{Path.GetFileName(jsonPath)}: {componentName} 이미지 파일을 찾을 수 없습니다: {relativePath}");
+            return null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or InvalidDataException)
+        {
+            errors.Add(
+                $"{Path.GetFileName(jsonPath)}: {componentName} 이미지 경로가 올바르지 않습니다: {ex.Message}");
+            return null;
+        }
     }
 
     internal static Color ParseColor(string value)
@@ -392,27 +420,6 @@ public sealed class JobStore
 
     public Task SaveAsync(IEnumerable<InspectionJob> jobs) =>
         AtomicJson.WriteAsync(JobsFilePath, jobs.ToList());
-}
-
-public static class EdsDataMigration
-{
-    public const string MarkerFileName = "eds-v3-migration.completed";
-
-    public static bool RunOnce(string rootDirectory)
-    {
-        Directory.CreateDirectory(rootDirectory);
-        var marker = Path.Combine(rootDirectory, MarkerFileName);
-        if (File.Exists(marker)) return false;
-
-        var jobs = Path.Combine(rootDirectory, "jobs.json");
-        if (File.Exists(jobs)) File.Delete(jobs);
-        var results = Path.Combine(rootDirectory, "Results");
-        if (Directory.Exists(results)) Directory.Delete(results, true);
-        File.WriteAllText(marker,
-            $"EDS Wafer Sort Simulator v3 migration completed at {DateTimeOffset.Now:O}",
-            new UTF8Encoding(false));
-        return true;
-    }
 }
 
 public sealed class RunArtifactStore

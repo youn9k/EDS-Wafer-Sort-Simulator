@@ -28,7 +28,7 @@ flowchart LR
 
 ### Memory Line
 
-![Memory EDS Test Cell](equipment/MEM-CELL-01.png)
+![Memory EDS Test Cell](equipment/images/MEM-CELL-01.png)
 
 - Product: `300 mm LPDDR5X DRAM Wafer`
 - Tester: Advantest `T5503HS2`
@@ -39,7 +39,7 @@ flowchart LR
 
 ### System IC Line
 
-![System IC EDS Test Cell](equipment/SYS-CELL-01.png)
+![System IC EDS Test Cell](equipment/images/SYS-CELL-01.png)
 
 - Product: `200 mm Automotive Mixed-Signal MCU Wafer`
 - Tester: Teradyne `J750Ex-HD`
@@ -145,8 +145,16 @@ flowchart LR
   "schemaVersion": "3.0",
   "id": "MEM-CELL-01",
   "line": "Memory Line",
-  "tester": { "manufacturer": "Advantest", "model": "T5503HS2" },
-  "prober": { "manufacturer": "Tokyo Electron", "model": "Prexa MS" },
+  "tester": {
+    "manufacturer": "Advantest",
+    "model": "T5503HS2",
+    "imageFile": "images/advantest-t5503hs2.png"
+  },
+  "prober": {
+    "manufacturer": "Tokyo Electron",
+    "model": "Prexa MS",
+    "imageFile": "images/tel-prexa-ms.jpg"
+  },
   "probeCard": {
     "name": "LPDDR5X 300 mm Full-Wafer Probe Card",
     "fixedMounted": true
@@ -194,7 +202,6 @@ stateDiagram-v2
 
 ```text
 RecipeTestProject/
-├─ eds-v3-migration.completed
 ├─ test-cell-state.json
 ├─ jobs.json
 └─ Results/
@@ -204,8 +211,8 @@ RecipeTestProject/
       └─ report.pdf
 ```
 
-- EDS v3 전환 마커가 없는 최초 실행에서 기존 광학 `jobs.json`과 `Results`를 한 번만 삭제합니다.
-- 이후 실행에서는 새 EDS 데이터를 삭제하지 않습니다.
+- 앱 시작 시 기존 `jobs.json`, `Results`, 카탈로그 파일을 자동 삭제하지 않습니다.
+- 기존 광학 데이터 정리가 필요하면 사용자가 명시적으로 백업·정리합니다.
 - Job과 Run 체크포인트 JSON은 임시 파일 작성 후 교체합니다.
 
 ## 실행과 검증
@@ -219,7 +226,7 @@ dotnet run --project RecipeTestProject.csproj
 dotnet run --project RecipeTestProject.SelfTests/RecipeTestProject.SelfTests.csproj
 ```
 
-SelfTests는 v3 카탈로그, 호환 필터, 동적 die map, 95% 경계, 균등/대표 Final Bin, 결정적 결과, 25장 완료, 구성품별 오류, 취소, 점유 차단, 체크포인트, 최초 마이그레이션과 PDF 생성을 검증합니다. 예시 보고서는 `output/pdf/sample-eds-lot-report.pdf`에 생성됩니다.
+SelfTests는 v3 카탈로그, 호환 필터, 동적 die map, 95% 경계, 균등/대표 Final Bin, 결정적 결과, 25장 완료, 구성품별 오류, 취소, 점유 차단, 체크포인트, 시작 시 기존 데이터 보존과 PDF 생성을 검증합니다. 예시 보고서는 `output/pdf/sample-eds-lot-report.pdf`에 생성됩니다.
 
 ## 기술 구성
 
