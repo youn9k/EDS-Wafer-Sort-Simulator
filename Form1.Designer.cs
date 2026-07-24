@@ -33,7 +33,7 @@
             ClientSize = new Size(1550, 940);
             MinimumSize = new Size(1050, 680);
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "웨이퍼 검사 장비 테스트";
+            Text = "EDS Wafer Sort Simulator";
         }
 
         #endregion

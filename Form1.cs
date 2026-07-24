@@ -5,33 +5,39 @@ namespace RecipeTestProject;
 
 public partial class Form1 : Form
 {
-    private readonly EquipmentCatalogLoadResult _equipmentCatalog;
+    private readonly TestCellCatalogLoadResult _cellCatalog;
     private readonly ProductCatalogLoadResult _productCatalog;
     private readonly RecipeCatalogLoadResult _recipeCatalog;
-    private readonly List<EquipmentState> _equipment = [];
+    private readonly List<TestCellState> _cells = [];
     private readonly List<InspectionJob> _jobs;
     private readonly MockConnectionService _connectionService = new();
-    private readonly EquipmentStateStore _equipmentStore = new();
-    private readonly JobStore _jobStore = new();
+    private readonly TestCellStateStore _cellStore;
+    private readonly JobStore _jobStore;
     private readonly RunArtifactStore _artifacts;
     private readonly LotTestRunner _runner = new();
     private readonly ReportService _reports = new();
-    private readonly Dictionary<string, CancellationTokenSource> _runCancellations = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, Task> _runTasks = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, JobRunResult> _activeRunResults = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, CancellationTokenSource> _runCancellations =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Task> _runTasks =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, JobRunResult> _activeRunResults =
+        new(StringComparer.OrdinalIgnoreCase);
 
     private Panel _contentHost = null!;
     private Label _banner = null!;
     private System.Windows.Forms.Timer _bannerTimer = null!;
     private Button _jobsNavigationButton = null!;
-    private Button _equipmentNavigationButton = null!;
+    private Button _cellNavigationButton = null!;
     private Control? _currentView;
     private bool _allowClose;
     private bool _closing;
 
     public Form1()
     {
-        _equipmentCatalog = EquipmentCatalog.Load(Path.Combine(AppContext.BaseDirectory, "equipment"));
+        _jobStore = new JobStore();
+        _cellStore = new TestCellStateStore(_jobStore.RootDirectory);
+        EdsDataMigration.RunOnce(_jobStore.RootDirectory);
+        _cellCatalog = TestCellCatalog.Load(Path.Combine(AppContext.BaseDirectory, "equipment"));
         _productCatalog = ProductCatalog.Load(Path.Combine(AppContext.BaseDirectory, "Products"));
         _recipeCatalog = RecipeCatalog.Load(Path.Combine(AppContext.BaseDirectory, "Recipes"));
         _jobs = _jobStore.Load();
@@ -41,7 +47,7 @@ public partial class Form1 : Form
         Font = new Font("맑은 고딕", 9F);
         BackColor = AppTheme.Background;
         BuildShell();
-        RestoreEquipment();
+        RestoreCells();
         ShowJobList();
         Shown += async (_, _) =>
         {
@@ -52,33 +58,42 @@ public partial class Form1 : Form
 
     private void BuildShell()
     {
-        var menu = new MenuStrip { Dock = DockStyle.Top, BackColor = Color.White, Padding = new Padding(12, 5, 0, 5) };
-        var equipmentMenu = new ToolStripMenuItem("장비");
-        var connect = new ToolStripMenuItem("장비 연결");
-        connect.Click += async (_, _) => await AddEquipmentAsync();
-        equipmentMenu.DropDownItems.Add(connect);
+        var menu = new MenuStrip
+        {
+            Dock = DockStyle.Top,
+            BackColor = Color.White,
+            Padding = new Padding(12, 5, 0, 5)
+        };
         var viewMenu = new ToolStripMenuItem("보기");
         var results = new ToolStripMenuItem("결과 폴더 열기");
         results.Click += (_, _) => OpenResultsFolder();
         viewMenu.DropDownItems.Add(results);
-        menu.Items.Add(equipmentMenu); menu.Items.Add(viewMenu);
+        menu.Items.Add(viewMenu);
 
         var body = new Panel { Dock = DockStyle.Fill, BackColor = AppTheme.Background };
-        var sidebar = new Panel { Dock = DockStyle.Left, Width = 205, BackColor = Color.FromArgb(35, 48, 61), Padding = new Padding(12, 22, 12, 12) };
+        var sidebar = new Panel
+        {
+            Dock = DockStyle.Left,
+            Width = 215,
+            BackColor = Color.FromArgb(35, 48, 61),
+            Padding = new Padding(12, 22, 12, 12)
+        };
         var product = new Label
         {
-            Text = "WAFER INSPECT\r\nTEST CENTER",
+            Text = "EDS WAFER SORT\r\nSIMULATOR",
             Dock = DockStyle.Top,
             Height = 76,
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 12F, FontStyle.Bold),
             Padding = new Padding(8, 4, 0, 0)
         };
-        _equipmentNavigationButton = SidebarButton("장비 목록");
-        _equipmentNavigationButton.Click += (_, _) => ShowEquipmentList();
+        _cellNavigationButton = SidebarButton("장비 목록");
+        _cellNavigationButton.Click += (_, _) => ShowCellList();
         _jobsNavigationButton = SidebarButton("전체 작업");
         _jobsNavigationButton.Click += (_, _) => ShowJobList();
-        sidebar.Controls.Add(_equipmentNavigationButton); sidebar.Controls.Add(_jobsNavigationButton); sidebar.Controls.Add(product);
+        sidebar.Controls.Add(_cellNavigationButton);
+        sidebar.Controls.Add(_jobsNavigationButton);
+        sidebar.Controls.Add(product);
 
         _contentHost = new Panel { Dock = DockStyle.Fill, BackColor = AppTheme.Background };
         _banner = new Label
@@ -92,11 +107,18 @@ public partial class Form1 : Form
             Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold)
         };
         _contentHost.Controls.Add(_banner);
-        body.Controls.Add(_contentHost); body.Controls.Add(sidebar);
-        Controls.Add(body); Controls.Add(menu); MainMenuStrip = menu;
+        body.Controls.Add(_contentHost);
+        body.Controls.Add(sidebar);
+        Controls.Add(body);
+        Controls.Add(menu);
+        MainMenuStrip = menu;
 
         _bannerTimer = new System.Windows.Forms.Timer { Interval = 4500 };
-        _bannerTimer.Tick += (_, _) => { _bannerTimer.Stop(); _banner.Visible = false; };
+        _bannerTimer.Tick += (_, _) =>
+        {
+            _bannerTimer.Stop();
+            _banner.Visible = false;
+        };
     }
 
     private static Button SidebarButton(string text)
@@ -118,34 +140,64 @@ public partial class Form1 : Form
         return button;
     }
 
-    private void RestoreEquipment()
+    private void RestoreCells()
     {
-        foreach (var saved in _equipmentStore.Load())
+        var saved = _cellStore.Load().ToDictionary(x => x.TestCellId, StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in _cellCatalog.TestCells)
         {
-            var definition = _equipmentCatalog.Equipment.FirstOrDefault(x => string.Equals(x.Id, saved.EquipmentId, StringComparison.OrdinalIgnoreCase));
-            if (definition is null) continue;
-            _equipment.Add(new EquipmentState(definition)
+            if (saved.TryGetValue(definition.Id, out var state))
             {
-                ConnectionStatus = saved.ConnectionStatus == ConnectionStatus.Connecting ? ConnectionStatus.Disconnected : saved.ConnectionStatus,
-                LastConnectedAt = saved.LastConnectedAt
-            });
+                _cells.Add(new TestCellState(definition)
+                {
+                    ConnectionStatus = state.ConnectionStatus == ConnectionStatus.Connecting
+                        ? ConnectionStatus.Disconnected
+                        : state.ConnectionStatus,
+                    LastConnectedAt = state.LastConnectedAt,
+                    ErrorComponent = state.ErrorComponent,
+                    ErrorMessage = state.ErrorMessage
+                });
+            }
+            else
+            {
+                _cells.Add(new TestCellState(definition)
+                {
+                    ConnectionStatus = ConnectionStatus.Connected,
+                    LastConnectedAt = DateTimeOffset.Now
+                });
+            }
         }
     }
 
     private void ShowJobList()
     {
         var view = new JobListView();
-        view.SetJobs(_jobs, FindEquipment);
+        view.SetJobs(_jobs, FindCell);
         view.CreateRequested += ShowJobCreate;
-        view.JobActivated += ShowJobDetail;
+        view.JobActivated += ActivateJob;
         SetContent(view);
+    }
+
+    private void ActivateJob(InspectionJob job)
+    {
+        var latest = job.Runs.OrderByDescending(x => x.StartedAt).FirstOrDefault();
+        if (job.Status == JobStatus.Running && latest is not null)
+        {
+            ShowRunResult(job, latest);
+            return;
+        }
+        if (job.Status != JobStatus.Pending && latest is not null && File.Exists(latest.ResultFilePath))
+        {
+            ShowRunResult(job, latest);
+            return;
+        }
+        ShowJobDetail(job);
     }
 
     private void ShowJobCreate()
     {
-        var view = new JobCreateView(_productCatalog.Products, _recipeCatalog.Recipes, _equipment);
+        var view = new JobCreateView(_productCatalog.Products, _recipeCatalog.Recipes, _cells);
         view.CancelRequested += ShowJobList;
-        view.EquipmentListRequested += ShowEquipmentList;
+        view.CellListRequested += ShowCellList;
         view.CreateRequested += async request => await CreateJobAsync(request);
         SetContent(view);
     }
@@ -160,7 +212,8 @@ public partial class Form1 : Form
             LotId = request.LotId,
             ProductSnapshot = Clone(request.Product),
             RecipeSnapshot = Clone(request.Recipe),
-            EquipmentId = request.Equipment.Definition.Id,
+            TestCellId = request.TestCell.Definition.Id,
+            TestCellSnapshot = Clone(request.TestCell.Definition),
             CreatedAt = DateTimeOffset.Now,
             Status = JobStatus.Pending
         };
@@ -172,7 +225,7 @@ public partial class Form1 : Form
 
     private void ShowJobDetail(InspectionJob job)
     {
-        var view = new JobDetailView(job, FindEquipment(job.EquipmentId));
+        var view = new JobDetailView(job, FindCell(job.TestCellId));
         view.BackRequested += ShowJobList;
         view.ConfigureRequested += () => ShowSimulationSettings(job);
         view.StartRequested += async () => await StartJobAsync(job);
@@ -191,28 +244,29 @@ public partial class Form1 : Form
             job.Simulation = settings;
             await _jobStore.SaveAsync(_jobs);
             ShowJobDetail(job);
-            ShowBanner("모의 결과 설정을 저장했습니다.", JobStatus.Completed);
+            ShowBanner("모의 EDS 결과 설정을 저장했습니다.", JobStatus.Completed);
         };
         SetContent(view);
     }
 
     private async Task StartJobAsync(InspectionJob job)
     {
-        if (job.Simulation is null) { ShowJobDetail(job); return; }
-        var equipment = FindEquipment(job.EquipmentId);
-        if (equipment is null || equipment.ConnectionStatus != ConnectionStatus.Connected)
+        var cell = FindCell(job.TestCellId);
+        var blocked = JobStartValidator.GetBlockReason(job, cell);
+        if (blocked is not null)
         {
-            MessageBox.Show(this, "배정 장비가 연결되어 있지 않습니다.", "테스트 시작", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(
+                this,
+                blocked,
+                "EDS 시작",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
             return;
         }
-        if (equipment.IsBusy)
-        {
-            MessageBox.Show(this, $"배정 장비가 {equipment.ActiveJobId} Job을 실행 중입니다.", "테스트 시작", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
+        var readyCell = cell!;
 
         var runId = $"RUN-{DateTimeOffset.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"[..25];
-        var result = LotTestRunner.CreateRun(job, equipment.Definition, runId);
+        var result = LotTestRunner.CreateRun(job, runId);
         var summary = new JobRunSummary
         {
             RunId = runId,
@@ -222,24 +276,34 @@ public partial class Form1 : Form
             LogFilePath = _artifacts.GetLogPath(job.JobId, runId)
         };
         job.Runs.Add(summary);
-        job.Status = JobStatus.Running; job.ProgressPercent = 0; job.CurrentWaferId = "Wafer01"; job.HasNgWafers = false;
-        equipment.ActiveJobId = job.JobId; equipment.ProgressPercent = 0; equipment.CurrentWaferId = "Wafer01";
+        job.Status = JobStatus.Running;
+        job.ProgressPercent = 0;
+        job.CurrentWaferId = "Wafer01";
+        job.HasLowYieldWafers = false;
+        readyCell.ActiveJobId = job.JobId;
+        readyCell.ProgressPercent = 0;
+        readyCell.CurrentWaferId = "Wafer01";
         _activeRunResults[runId] = result;
         await SaveCheckpointAsync(job, summary, result);
+        await _cellStore.SaveAsync(_cells);
 
-        ShowJobProgress(job, result);
-
+        ShowJobProgress(job, result, readyCell);
         var cancellation = new CancellationTokenSource();
         _runCancellations[job.JobId] = cancellation;
         var progress = new Progress<LotRunProgress>(update =>
         {
-            job.ProgressPercent = update.OverallPercent; job.CurrentWaferId = update.WaferId;
-            equipment.ProgressPercent = update.OverallPercent; equipment.CurrentWaferId = update.WaferId;
+            job.ProgressPercent = update.OverallPercent;
+            job.CurrentWaferId = update.WaferId;
+            readyCell.ProgressPercent = update.OverallPercent;
+            readyCell.CurrentWaferId = update.WaferId;
             RefreshCurrentLiveView(update);
         });
-        var execution = ExecuteRunAsync(job, equipment, result, summary, progress, cancellation);
+        var execution = ExecuteRunAsync(job, readyCell, result, summary, progress, cancellation);
         _runTasks[job.JobId] = execution;
-        try { await execution; }
+        try
+        {
+            await execution;
+        }
         finally
         {
             _runTasks.Remove(job.JobId);
@@ -251,20 +315,28 @@ public partial class Form1 : Form
 
     private async Task ExecuteRunAsync(
         InspectionJob job,
-        EquipmentState equipment,
+        TestCellState cell,
         JobRunResult result,
         JobRunSummary summary,
         IProgress<LotRunProgress> progress,
         CancellationTokenSource cancellation)
     {
-        await _runner.RunAsync(job, equipment, result, progress,
-            snapshot => SaveCheckpointAsync(job, summary, snapshot), cancellation.Token);
+        await _runner.RunAsync(
+            job,
+            cell,
+            result,
+            progress,
+            snapshot => SaveCheckpointAsync(job, summary, snapshot),
+            cancellation.Token);
 
         if (result.Status == JobStatus.Completed)
         {
             try
             {
-                summary.ReportFilePath = await _reports.GenerateAsync(job, result, _artifacts.GetReportPath(job.JobId, result.RunId));
+                summary.ReportFilePath = await _reports.GenerateAsync(
+                    job,
+                    result,
+                    _artifacts.GetReportPath(job.JobId, result.RunId));
             }
             catch (Exception ex)
             {
@@ -274,40 +346,59 @@ public partial class Form1 : Form
         }
 
         UpdateFromResult(job, summary, result);
-        equipment.ActiveJobId = null; equipment.ProgressPercent = 0; equipment.CurrentWaferId = string.Empty;
+        cell.ActiveJobId = null;
+        cell.ProgressPercent = 0;
+        cell.CurrentWaferId = string.Empty;
         await _artifacts.SaveCheckpointAsync(result);
         await _jobStore.SaveAsync(_jobs);
+        await _cellStore.SaveAsync(_cells);
 
         if (_currentView is JobProgressView current && current.RunId == result.RunId)
             ShowRunResult(job, summary);
         else
         {
             RefreshCurrentLiveView(statusMayHaveChanged: true);
-            ShowBanner($"{job.LotId}: {JobCard.JobText(result.Status)}", result.Status);
+            ShowBanner($"{job.LotId}: {AppTheme.JobText(result.Status)}", result.Status);
         }
     }
 
-    private async Task SaveCheckpointAsync(InspectionJob job, JobRunSummary summary, JobRunResult result)
+    private async Task SaveCheckpointAsync(
+        InspectionJob job,
+        JobRunSummary summary,
+        JobRunResult result)
     {
         UpdateFromResult(job, summary, result);
         await _artifacts.SaveCheckpointAsync(result);
         await _jobStore.SaveAsync(_jobs);
     }
 
-    private static void UpdateFromResult(InspectionJob job, JobRunSummary summary, JobRunResult result)
+    private static void UpdateFromResult(
+        InspectionJob job,
+        JobRunSummary summary,
+        JobRunResult result)
     {
-        summary.Status = result.Status; summary.FinishedAt = result.FinishedAt;
-        summary.ProgressPercent = result.ProgressPercent; summary.HasNgWafers = result.HasNgWafers;
-        summary.LotYieldPercent = result.LotYieldPercent; summary.FailureReason = result.FailureReason;
-        job.Status = result.Status; job.ProgressPercent = result.ProgressPercent;
-        job.CurrentWaferId = result.CurrentWaferId; job.HasNgWafers = result.HasNgWafers;
+        summary.Status = result.Status;
+        summary.FinishedAt = result.FinishedAt;
+        summary.ProgressPercent = result.ProgressPercent;
+        summary.HasLowYieldWafers = result.HasLowYieldWafers;
+        summary.LotYieldPercent = result.LotYieldPercent;
+        summary.FailureReason = result.FailureReason;
+        summary.ErrorComponent = result.ErrorComponent;
+        job.Status = result.Status;
+        job.ProgressPercent = result.ProgressPercent;
+        job.CurrentWaferId = result.CurrentWaferId;
+        job.HasLowYieldWafers = result.HasLowYieldWafers;
     }
 
     private void CancelRun(string jobId)
     {
         if (!_runCancellations.TryGetValue(jobId, out var cancellation)) return;
-        if (MessageBox.Show(this, "진행 중인 Lot 검사를 취소하시겠습니까?", "검사 취소",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+        if (MessageBox.Show(
+                this,
+                "진행 중인 EDS Run을 취소하시겠습니까?\r\n완료된 Wafer 결과는 보존됩니다.",
+                "Run 취소",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning) == DialogResult.Yes)
             cancellation.Cancel();
     }
 
@@ -315,14 +406,18 @@ public partial class Form1 : Form
     {
         if (run.Status == JobStatus.Running)
         {
-            if (_activeRunResults.TryGetValue(run.RunId, out var activeResult))
+            if (_activeRunResults.TryGetValue(run.RunId, out var activeResult) &&
+                FindCell(job.TestCellId) is { } cell)
             {
-                ShowJobProgress(job, activeResult);
+                ShowJobProgress(job, activeResult, cell);
                 return;
             }
-
-            MessageBox.Show(this, "진행 중인 Run 정보를 찾을 수 없습니다. Job 상태를 다시 확인하세요.",
-                "진행 화면 열기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(
+                this,
+                "진행 중인 Run 정보를 찾을 수 없습니다. Job 상태를 다시 확인하세요.",
+                "진행 화면 열기",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
             ShowJobDetail(job);
             return;
         }
@@ -330,8 +425,12 @@ public partial class Form1 : Form
         var result = _artifacts.Load(run.ResultFilePath);
         if (result is null)
         {
-            MessageBox.Show(this, $"결과 파일을 찾거나 읽을 수 없습니다.\r\n\r\n{run.ResultFilePath}",
-                "결과 파일 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(
+                this,
+                $"결과 파일을 찾거나 읽을 수 없습니다.\r\n\r\n{run.ResultFilePath}",
+                "결과 파일 없음",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
             ShowJobDetail(job);
             return;
         }
@@ -342,18 +441,21 @@ public partial class Form1 : Form
         SetContent(view);
     }
 
-    private void ShowJobProgress(InspectionJob job, JobRunResult result)
+    private void ShowJobProgress(InspectionJob job, JobRunResult result, TestCellState cell)
     {
-        var view = new JobProgressView(job, result);
+        var view = new JobProgressView(job, result, cell);
         view.CancelRequested += () => CancelRun(job.JobId);
         SetContent(view);
     }
 
-    private void RefreshCurrentLiveView(LotRunProgress? progress = null, bool statusMayHaveChanged = false)
+    private void RefreshCurrentLiveView(
+        LotRunProgress? progress = null,
+        bool statusMayHaveChanged = false)
     {
         switch (_currentView)
         {
-            case JobProgressView progressView when progress is not null && progressView.RunId == progress.RunId:
+            case JobProgressView progressView
+                when progress is not null && progressView.RunId == progress.RunId:
                 progressView.ApplyProgress(progress);
                 break;
             case JobListView jobs:
@@ -362,10 +464,10 @@ public partial class Form1 : Form
             case JobDetailView detail:
                 detail.RefreshView();
                 break;
-            case EquipmentListView equipment:
-                equipment.RefreshStates();
+            case TestCellListView cells:
+                cells.RefreshStates();
                 break;
-            case EquipmentDetailView detail:
+            case TestCellDetailView detail:
                 detail.RefreshView();
                 break;
         }
@@ -374,77 +476,64 @@ public partial class Form1 : Form
     private async Task DeleteJobAsync(InspectionJob job)
     {
         if (job.Status == JobStatus.Running) return;
-        if (MessageBox.Show(this, "정말로 삭제하시겠습니까?\r\n자동 저장된 결과 파일은 보존됩니다.", "Job 삭제",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        if (MessageBox.Show(
+                this,
+                "정말로 삭제하시겠습니까?\r\n자동 저장된 결과 파일은 보존됩니다.",
+                "Job 삭제",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning) != DialogResult.Yes)
+            return;
         _jobs.Remove(job);
         await _jobStore.SaveAsync(_jobs);
         ShowJobList();
         ShowBanner("Job을 삭제했습니다. 결과 파일은 보존됩니다.", JobStatus.Completed);
     }
 
-    private void ShowEquipmentList()
+    private void ShowCellList()
     {
-        var view = new EquipmentListView(_equipment);
-        view.EquipmentActivated += ShowEquipmentDetail;
+        var view = new TestCellListView(_cells);
+        view.CellActivated += ShowCellDetail;
         SetContent(view);
     }
 
-    private void ShowEquipmentDetail(EquipmentState equipment)
+    private void ShowCellDetail(TestCellState cell)
     {
-        var view = new EquipmentDetailView(equipment);
-        view.BackRequested += ShowEquipmentList;
+        var view = new TestCellDetailView(cell, _jobs);
+        view.BackRequested += ShowCellList;
         view.ConnectionToggleRequested += async () =>
         {
-            if (equipment.ConnectionStatus == ConnectionStatus.Connected)
+            if (cell.IsBusy) return;
+            if (cell.ConnectionStatus == ConnectionStatus.Connected)
             {
-                equipment.ConnectionStatus = ConnectionStatus.Disconnected;
-                await _equipmentStore.SaveAsync(_equipment);
+                cell.ConnectionStatus = ConnectionStatus.Disconnected;
+                await _cellStore.SaveAsync(_cells);
                 view.RefreshView();
                 return;
             }
             try
             {
-                var connection = _connectionService.ConnectAsync(equipment);
+                var connection = _connectionService.ConnectAsync(cell);
                 view.RefreshView();
                 await connection;
-                await _equipmentStore.SaveAsync(_equipment);
+                await _cellStore.SaveAsync(_cells);
                 view.RefreshView();
-                ShowBanner($"{equipment.Definition.Name} 장비에 연결했습니다.", JobStatus.Completed);
+                ShowBanner($"{cell.Definition.Name}에 연결했습니다.", JobStatus.Completed);
             }
             catch (Exception ex)
             {
-                equipment.ConnectionStatus = ConnectionStatus.Disconnected;
+                cell.ConnectionStatus = ConnectionStatus.Disconnected;
                 MessageBox.Show(this, ex.Message, "연결 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         };
+        view.ErrorResetRequested += async () =>
+        {
+            if (cell.IsBusy || !cell.HasError) return;
+            cell.ResetError();
+            await _cellStore.SaveAsync(_cells);
+            view.RefreshView();
+            ShowBanner($"{cell.Definition.Name} 오류를 리셋했습니다.", JobStatus.Completed);
+        };
         SetContent(view);
-    }
-
-    private async Task AddEquipmentAsync()
-    {
-        var existing = _equipment.Select(x => x.Definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var available = _equipmentCatalog.Equipment.Where(x => !existing.Contains(x.Id)).ToList();
-        if (available.Count == 0)
-        {
-            MessageBox.Show(this, "추가로 연결할 수 있는 가상 장비가 없습니다.", "장비 연결", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-        using var dialog = new EquipmentSelectionDialog(available);
-        if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedEquipment is null) return;
-        var state = new EquipmentState(dialog.SelectedEquipment) { ConnectionStatus = ConnectionStatus.Connecting };
-        _equipment.Add(state); ShowEquipmentList();
-        try
-        {
-            await _connectionService.ConnectAsync(state);
-            await _equipmentStore.SaveAsync(_equipment);
-            ShowEquipmentList();
-            ShowBanner($"{state.Definition.Name} 장비에 연결했습니다.", JobStatus.Completed);
-        }
-        catch (Exception ex)
-        {
-            state.ConnectionStatus = ConnectionStatus.Disconnected;
-            MessageBox.Show(this, ex.Message, "연결 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
     }
 
     private async Task RecoverInterruptedRunsAsync()
@@ -452,23 +541,37 @@ public partial class Form1 : Form
         var changed = false;
         foreach (var job in _jobs.Where(x => x.Status == JobStatus.Running))
         {
-            var run = job.Runs.OrderByDescending(x => x.StartedAt).FirstOrDefault(x => x.Status == JobStatus.Running);
-            if (run is null) { job.Status = JobStatus.Interrupted; changed = true; continue; }
+            var run = job.Runs
+                .OrderByDescending(x => x.StartedAt)
+                .FirstOrDefault(x => x.Status == JobStatus.Running);
+            if (run is null)
+            {
+                job.Status = JobStatus.Interrupted;
+                changed = true;
+                continue;
+            }
             var result = _artifacts.Load(run.ResultFilePath);
             if (result is not null)
             {
-                foreach (var wafer in result.Wafers.Where(x => x.Status is WaferExecutionStatus.Running or WaferExecutionStatus.Pending))
+                foreach (var wafer in result.Wafers.Where(x =>
+                             x.Status is WaferExecutionStatus.Running or WaferExecutionStatus.Pending))
                     wafer.Status = WaferExecutionStatus.NotRun;
-                result.Status = JobStatus.Interrupted; result.FinishedAt = DateTimeOffset.Now;
+                result.Status = JobStatus.Interrupted;
+                result.FinishedAt = DateTimeOffset.Now;
                 result.FailureReason = "프로그램이 비정상 종료되어 Run이 중단되었습니다.";
-                result.Logs.Add(new RunLogEntry(DateTimeOffset.Now, "WARN", result.CurrentWaferId, result.FailureReason));
+                result.Logs.Add(new RunLogEntry(
+                    DateTimeOffset.Now,
+                    "WARN",
+                    result.CurrentWaferId,
+                    result.FailureReason));
                 await _artifacts.SaveCheckpointAsync(result);
                 UpdateFromResult(job, run, result);
             }
             else
             {
-                run.Status = JobStatus.Interrupted; run.FinishedAt = DateTimeOffset.Now;
-                run.FailureReason = "프로그램이 비정상 종료되었으며 체크포인트 파일을 찾을 수 없습니다.";
+                run.Status = JobStatus.Interrupted;
+                run.FinishedAt = DateTimeOffset.Now;
+                run.FailureReason = "비정상 종료된 Run의 체크포인트 파일을 찾을 수 없습니다.";
                 job.Status = JobStatus.Interrupted;
             }
             changed = true;
@@ -481,7 +584,12 @@ public partial class Form1 : Form
         }
     }
 
-    private void SaveLogCopy(JobRunSummary run) => SaveCopy(run.LogFilePath, "로그 파일 저장", "로그 파일 (*.log)|*.log|텍스트 파일 (*.txt)|*.txt");
+    private void SaveLogCopy(JobRunSummary run) =>
+        SaveCopy(
+            run.LogFilePath,
+            "로그 파일 저장",
+            "로그 파일 (*.log)|*.log|텍스트 파일 (*.txt)|*.txt");
+
     private void SaveReportCopy(JobRunSummary run)
     {
         if (!string.IsNullOrWhiteSpace(run.ReportFilePath))
@@ -492,13 +600,31 @@ public partial class Form1 : Form
     {
         if (!File.Exists(source))
         {
-            MessageBox.Show(this, $"자동 저장 파일을 찾을 수 없습니다.\r\n{source}", title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(
+                this,
+                $"자동 저장 파일을 찾을 수 없습니다.\r\n{source}",
+                title,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
             return;
         }
-        using var dialog = new SaveFileDialog { Title = title, Filter = filter, FileName = Path.GetFileName(source), OverwritePrompt = true };
+        using var dialog = new SaveFileDialog
+        {
+            Title = title,
+            Filter = filter,
+            FileName = Path.GetFileName(source),
+            OverwritePrompt = true
+        };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        try { File.Copy(source, dialog.FileName, true); ShowBanner("파일을 저장했습니다.", JobStatus.Completed); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, title, MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        try
+        {
+            File.Copy(source, dialog.FileName, true);
+            ShowBanner("파일을 저장했습니다.", JobStatus.Completed);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void OpenResultsFolder()
@@ -506,16 +632,30 @@ public partial class Form1 : Form
         try
         {
             Directory.CreateDirectory(_artifacts.ResultsDirectory);
-            Process.Start(new ProcessStartInfo("explorer.exe", _artifacts.ResultsDirectory) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("explorer.exe", _artifacts.ResultsDirectory)
+            {
+                UseShellExecute = true
+            });
         }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "결과 폴더 열기 실패", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                ex.Message,
+                "결과 폴더 열기 실패",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
     }
 
-    private EquipmentState? FindEquipment(string id) =>
-        _equipment.FirstOrDefault(x => string.Equals(x.Definition.Id, id, StringComparison.OrdinalIgnoreCase));
+    private TestCellState? FindCell(string id) =>
+        _cells.FirstOrDefault(x =>
+            string.Equals(x.Definition.Id, id, StringComparison.OrdinalIgnoreCase));
 
     private static T Clone<T>(T value) =>
-        JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, JsonDefaults.Write), JsonDefaults.Read)!;
+        JsonSerializer.Deserialize<T>(
+            JsonSerializer.Serialize(value, JsonDefaults.Write),
+            JsonDefaults.Read)!;
 
     private void SetContent(Control view)
     {
@@ -524,11 +664,18 @@ public partial class Form1 : Form
             _contentHost.Controls.Remove(_currentView);
             _currentView.Dispose();
         }
-        _currentView = view; view.Dock = DockStyle.Fill;
-        _contentHost.Controls.Add(view); view.BringToFront(); _banner.BringToFront();
-        var equipmentSelected = view is EquipmentListView or EquipmentDetailView;
-        _equipmentNavigationButton.BackColor = equipmentSelected ? Color.FromArgb(47, 106, 165) : Color.FromArgb(35, 48, 61);
-        _jobsNavigationButton.BackColor = equipmentSelected ? Color.FromArgb(35, 48, 61) : Color.FromArgb(47, 106, 165);
+        _currentView = view;
+        view.Dock = DockStyle.Fill;
+        _contentHost.Controls.Add(view);
+        view.BringToFront();
+        _banner.BringToFront();
+        var cellSelected = view is TestCellListView or TestCellDetailView;
+        _cellNavigationButton.BackColor = cellSelected
+            ? Color.FromArgb(47, 106, 165)
+            : Color.FromArgb(35, 48, 61);
+        _jobsNavigationButton.BackColor = cellSelected
+            ? Color.FromArgb(35, 48, 61)
+            : Color.FromArgb(47, 106, 165);
     }
 
     private void ShowBanner(string message, JobStatus status)
@@ -536,30 +683,56 @@ public partial class Form1 : Form
         if (IsDisposed || Disposing) return;
         _banner.Text = message;
         _banner.BackColor = status == JobStatus.Completed ? AppTheme.Success :
-            status is JobStatus.Failed or JobStatus.Interrupted ? AppTheme.Danger : AppTheme.Warning;
-        _banner.Visible = true; _banner.BringToFront(); _bannerTimer.Stop(); _bannerTimer.Start();
+            status is JobStatus.Failed or JobStatus.Interrupted ? AppTheme.Danger :
+            AppTheme.Warning;
+        _banner.Visible = true;
+        _banner.BringToFront();
+        _bannerTimer.Stop();
+        _bannerTimer.Start();
     }
 
     private void ShowCatalogErrors()
     {
-        var errors = _equipmentCatalog.Errors.Concat(_productCatalog.Errors).Concat(_recipeCatalog.Errors).ToList();
-        foreach (var product in _productCatalog.Products)
-            foreach (var recipeId in product.AllowedRecipeIds.Where(id => !_recipeCatalog.Recipes.Any(r => string.Equals(r.RecipeId, id, StringComparison.OrdinalIgnoreCase))))
-                errors.Add($"{product.ProductId}: 허용 레시피를 찾을 수 없습니다 - {recipeId}");
+        var errors = _cellCatalog.Errors
+            .Concat(_productCatalog.Errors)
+            .Concat(_recipeCatalog.Errors)
+            .Concat(CatalogRelationshipValidator.Validate(
+                _productCatalog.Products,
+                _recipeCatalog.Recipes,
+                _cellCatalog.TestCells))
+            .ToList();
         if (errors.Count == 0) return;
-        MessageBox.Show(this, "일부 카탈로그 파일을 불러오지 못했습니다.\r\n\r\n" +
-                              string.Join("\r\n", errors.Select(x => $"• {x}")),
-            "카탈로그 경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        MessageBox.Show(
+            this,
+            "일부 카탈로그 파일 또는 자산에 문제가 있습니다.\r\n\r\n" +
+            string.Join("\r\n", errors.Select(x => $"• {x}")),
+            "카탈로그 경고",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        if (_allowClose) { base.OnFormClosing(e); return; }
-        if (_runTasks.Count == 0) { _allowClose = true; base.OnFormClosing(e); return; }
+        if (_allowClose)
+        {
+            base.OnFormClosing(e);
+            return;
+        }
+        if (_runTasks.Count == 0)
+        {
+            _allowClose = true;
+            base.OnFormClosing(e);
+            return;
+        }
         e.Cancel = true;
         if (_closing) return;
-        if (MessageBox.Show(this, $"{_runTasks.Count}개의 검사가 진행 중입니다.\r\n모두 취소하고 종료하시겠습니까?",
-                "프로그램 종료", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        if (MessageBox.Show(
+                this,
+                $"{_runTasks.Count}개의 EDS Run이 진행 중입니다.\r\n모두 취소하고 종료하시겠습니까?",
+                "프로그램 종료",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning) != DialogResult.Yes)
+            return;
         _closing = true;
         _ = CancelAllAndCloseAsync();
     }
@@ -567,8 +740,17 @@ public partial class Form1 : Form
     private async Task CancelAllAndCloseAsync()
     {
         foreach (var source in _runCancellations.Values) source.Cancel();
-        try { await Task.WhenAll(_runTasks.Values.ToArray()); } catch { }
+        try
+        {
+            await Task.WhenAll(_runTasks.Values.ToArray());
+        }
+        catch
+        {
+            // 각 Run이 체크포인트를 저장한 뒤 종료하므로 종료 자체는 계속한다.
+        }
         await _jobStore.SaveAsync(_jobs);
-        _allowClose = true; Close();
+        await _cellStore.SaveAsync(_cells);
+        _allowClose = true;
+        Close();
     }
 }

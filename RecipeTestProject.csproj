@@ -25,4 +25,8 @@
     <PackageReference Include="PDFsharp-MigraDoc-GDI" Version="6.2.4" />
   </ItemGroup>
 
+  <Target Name="RemoveStaleCatalogOutput" BeforeTargets="CopyFilesToOutputDirectory">
+    <RemoveDir Directories="$(OutDir)Products;$(OutDir)Recipes;$(OutDir)equipment" />
+  </Target>
+
 </Project>
