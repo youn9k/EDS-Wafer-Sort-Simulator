@@ -234,9 +234,9 @@ internal sealed class CreateJobCard : Panel
             Font = new Font("맑은 고딕", 15F, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
-        label.DoubleClick += (_, _) => Activated?.Invoke();
+        label.Click += (_, _) => Activated?.Invoke();
         Controls.Add(label);
-        DoubleClick += (_, _) => Activated?.Invoke();
+        Click += (_, _) => Activated?.Invoke();
     }
 
     public event Action? Activated;
